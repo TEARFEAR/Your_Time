@@ -16,7 +16,7 @@ class _LoginPageState extends State<LoginPage> {
     final id = _idController.text;
     final pw = _pwController.text;
 
-    final url = Uri.parse('http://10.0.2.2:8080/api/auth/login');
+    final url = Uri.parse('http://localhost:8080/api/auth/login');
     try {
       final response = await http.post(
         url,
