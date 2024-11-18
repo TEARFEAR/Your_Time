@@ -177,7 +177,7 @@ class _SignupPageState extends State<SignupPage> {
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black, // 검은색 배경
+                  backgroundColor: Colors.black,
                   padding: EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8.0),
