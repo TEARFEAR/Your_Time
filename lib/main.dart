@@ -4,7 +4,6 @@ import 'home_page.dart'; // 홈 화면 파일 import
 import 'signup_page.dart'; // 회원가입 화면 파일 import
 
 void main() {
-
   runApp(MyApp());
 }
 
