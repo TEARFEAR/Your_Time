@@ -46,7 +46,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       appBar: AppBar(
         title: Text('내 정보'),
@@ -69,45 +68,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Center(
               child: Text(
                 name,
-                style:
-                TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    fontSize: 24, fontWeight: FontWeight.bold),
               ),
             ),
             SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('학과', style: TextStyle(fontSize: 16)),
-                    Text(department, style: TextStyle(fontSize: 16)),
-                    SizedBox(height: 10),
-                    Text('학번', style: TextStyle(fontSize: 16)),
-                    Text(studentId, style: TextStyle(fontSize: 16)),
-                    SizedBox(height: 10),
-                    Text('성향', style: TextStyle(fontSize: 16)),
-                    Text(tendency,
-                        style: TextStyle(
-                            fontSize: 16, color: Colors.red)),
-                  ],
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    // Navigate to edit profile screen
-                  },
-                  child: Text('회원 정보 수정'),
-                ),
+                Text('학과', style: TextStyle(fontSize: 16)),
+                Text(department, style: TextStyle(fontSize: 16)),
+                SizedBox(height: 10),
+                Text('학번', style: TextStyle(fontSize: 16)),
+                Text(studentId, style: TextStyle(fontSize: 16)),
+                SizedBox(height: 10),
+                Text('성향', style: TextStyle(fontSize: 16)),
+                Text(tendency,
+                    style: TextStyle(
+                        fontSize: 16, color: Colors.red)),
               ],
             ),
           ],
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: '홈'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: '내 정보'),
-        ],
       ),
     );
   }

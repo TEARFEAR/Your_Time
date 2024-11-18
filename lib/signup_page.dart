@@ -13,7 +13,6 @@ class _SignupPageState extends State<SignupPage> {
   final _nameController = TextEditingController();
   final _pwController = TextEditingController();
   final _departmentController = TextEditingController();
-  final _studentIdController = TextEditingController();
   String? selectedPreference; // 성향 선택 변수
 
   Future<void> _signup() async {
@@ -21,10 +20,9 @@ class _SignupPageState extends State<SignupPage> {
     final name = _nameController.text;
     final pw = _pwController.text;
     final department = _departmentController.text;
-    final studentId = _studentIdController.text;
 
     final url = Uri.parse('http://10.0.2.2:8080/api/auth/signup');
-    print("API 호출 전 데이터 확인: id: $id, name: $name, pw: $pw, department: $department, studentId: $studentId");
+    print("API 호출 전 데이터 확인: id: $id, name: $name, pw: $pw, department: $department");
 
     try {
       final response = await http.post(
@@ -35,7 +33,6 @@ class _SignupPageState extends State<SignupPage> {
           'name': name,
           'pw': pw,
           'department': department,
-          'studentId': studentId,
           'preference': selectedPreference
         }),
       );
@@ -122,26 +119,6 @@ class _SignupPageState extends State<SignupPage> {
                 },
               ),
               SizedBox(height: 16),
-              // Student ID Field
-              TextFormField(
-                controller: _studentIdController,
-                decoration: InputDecoration(
-                  hintText: '학번',
-                  filled: true,
-                  fillColor: Colors.grey[200],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return '학번을 입력해주세요.';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 16),
               // ID Field
               TextFormField(
                 controller: _idController,
@@ -222,7 +199,6 @@ class _SignupPageState extends State<SignupPage> {
                     print("ID: ${_idController.text}");
                     print("Name: ${_nameController.text}");
                     print("Department: ${_departmentController.text}");
-                    print("Student ID: ${_studentIdController.text}");
                     print("Password: ${_pwController.text}");
                     _signup();
                   } else {
