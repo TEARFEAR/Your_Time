@@ -13,44 +13,42 @@ class _SignupPageState extends State<SignupPage> {
   final _nameController = TextEditingController();
   final _pwController = TextEditingController();
   final _departmentController = TextEditingController();
-  String? selectedPreference; // 성향 선택 변수
+  String? selectedPreference; // 성향 선택 변수 (아직 api 구성 x)
+
+  final Map<String, int> preferenceMap = {
+    '안정형': 1,
+    '밸런스형': 2,
+    '도전형': 3,
+  };
 
   Future<void> _signup() async {
     final id = _idController.text;
     final name = _nameController.text;
     final pw = _pwController.text;
     final department = _departmentController.text;
+    final tendency = preferenceMap[selectedPreference];
 
-    final url = Uri.parse('http://10.0.2.2:8080/api/auth/signup');
-    print("API 호출 전 데이터 확인: id: $id, name: $name, pw: $pw, department: $department");
-
+    final url = Uri.parse('http://localhost:8080/api/auth/signup');
     try {
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'id': id,
-          'name': name,
-          'pw': pw,
-          'department': department,
-          'preference': selectedPreference
-        }),
+        body: jsonEncode({'id': id, 'name': name, 'pw': pw, "department": department, 'tendency': tendency}),
       );
-
-      print("응답 코드: ${response.statusCode}");
-      print("응답 본문: ${response.body}");
 
       if (response.statusCode == 200) {
         print("회원가입 성공");
-        Navigator.pop(context); // 성공 시 화면 이동
-      } else {
-        print("회원가입 실패");
+        Navigator.pop(context); // 회원가입 후 로그인 화면으로 돌아감
+      } else if (response.statusCode == 401) {
+        print("회원가입 실패: ${response.body}");
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('회원가입에 실패했습니다. 다시 시도해주세요.')),
         );
+      } else {
+        print("알 수 없는 오류 발생: ${response.statusCode}");
       }
     } catch (e) {
-      print("API 호출 중 오류 발생: $e");
+      print("회원가입 중 오류 발생: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('네트워크 오류가 발생했습니다. 다시 시도해주세요.')),
       );
@@ -63,7 +61,8 @@ class _SignupPageState extends State<SignupPage> {
       backgroundColor: Colors.white,
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0),
-        child: SingleChildScrollView( // 화면 스크롤 가능하게 설정
+        child: Form( // 여기에 Form 위젯 추가
+          key: _formKey,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -79,7 +78,7 @@ class _SignupPageState extends State<SignupPage> {
                 ),
               ),
               SizedBox(height: 40),
-              // Name Field
+              // 이름 입력 필드
               TextFormField(
                 controller: _nameController,
                 decoration: InputDecoration(
@@ -99,27 +98,7 @@ class _SignupPageState extends State<SignupPage> {
                 },
               ),
               SizedBox(height: 16),
-              // Department Field
-              TextFormField(
-                controller: _departmentController,
-                decoration: InputDecoration(
-                  hintText: '학과',
-                  filled: true,
-                  fillColor: Colors.grey[200],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return '학과를 입력해주세요.';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 16),
-              // ID Field
+              // 아이디 입력 필드
               TextFormField(
                 controller: _idController,
                 decoration: InputDecoration(
@@ -139,7 +118,7 @@ class _SignupPageState extends State<SignupPage> {
                 },
               ),
               SizedBox(height: 16),
-              // Password Field
+              // 비밀번호 입력 필드
               TextFormField(
                 controller: _pwController,
                 obscureText: true,
@@ -161,7 +140,26 @@ class _SignupPageState extends State<SignupPage> {
                 },
               ),
               SizedBox(height: 16),
-              // Preference Field
+              TextFormField(
+                controller: _departmentController,
+                decoration: InputDecoration(
+                  hintText: '학과',
+                  filled: true,
+                  fillColor: Colors.grey[200],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return '본인 학과를 입력해주세요.';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 16),
+              // 성향 선택 Dropdown
               DropdownButtonFormField<String>(
                 decoration: InputDecoration(
                   filled: true,
@@ -192,21 +190,15 @@ class _SignupPageState extends State<SignupPage> {
                 },
               ),
               SizedBox(height: 24),
-              // Sign Up Button
+              // 회원가입 버튼
               ElevatedButton(
                 onPressed: () {
                   if (_formKey.currentState?.validate() ?? false) {
-                    print("ID: ${_idController.text}");
-                    print("Name: ${_nameController.text}");
-                    print("Department: ${_departmentController.text}");
-                    print("Password: ${_pwController.text}");
                     _signup();
-                  } else {
-                    print("Validation failed");
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black, // 검은색 배경
+                  backgroundColor: Colors.black,
                   padding: EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8.0),
