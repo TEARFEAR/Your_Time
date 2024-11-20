@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'profile_page.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -12,7 +13,23 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _selectedIndex = index;
     });
-    // 하단 메뉴바 구현 (아직 안함)
+
+    if (index == 1) {
+      _showProfileScreen();
+    }
+  }
+
+  void _showProfileScreen() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+      ),
+      builder: (BuildContext context) {
+        return ProfileScreen(); // ProfileScreen을 모달로 표시
+      },
+    );
   }
 
   final List<String> week = ['월', '화', '수', '목', '금'];

@@ -22,7 +22,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> fetchProfileData() async {
     try {
-      final url = Uri.parse('http://10.0.2.2:8080/api/members/info'); // API URL
+      final url = Uri.parse('http://localhost:8080/api/members/info'); // API URL
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
