@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'lecture_search_bottom_sheet.dart';
 import 'profile_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -111,7 +112,17 @@ class _HomePageState extends State<HomePage> {
                   ),
                   ElevatedButton.icon(
                     onPressed: () {
-                      // 추후 구현
+                      // 과목 추가 버튼 클릭 시 바텀 시트를 띄움
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true, // 바텀 시트가 화면의 대부분을 차지하도록 설정
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+                        ),
+                        builder: (BuildContext context) {
+                          return const LectureSearchBottomSheet(); // 검색 바텀 시트를 표시
+                        },
+                      );
                     },
                     icon: Icon(Icons.add),
                     label: Text(
