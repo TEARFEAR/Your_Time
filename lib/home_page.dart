@@ -11,12 +11,25 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-
     if (index == 1) {
-      _showProfileScreen();
+      // "내 정보" 화면으로 전환
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => ProfileScreen()),
+      ).then((_) {
+        // "내 정보" 화면에서 돌아오면 홈 화면 상태로 복원
+        setState(() {
+          _selectedIndex = 0;
+        });
+      });
+    } else {
+      // 홈 버튼 동작
+      setState(() {
+        _selectedIndex = index;
+      });
+
+      // Navigator 스택을 정리하여 홈 화면으로 돌아옴
+      Navigator.popUntil(context, (route) => route.isFirst);
     }
   }
 
@@ -55,16 +68,8 @@ class _HomePageState extends State<HomePage> {
       'professor': '박교수',
       'time': '수10:00~12:00(공2114), 목10:00~12:00(공2114)'
     },
-    {
-      'subject': '컴퓨터네트워크',
-      'professor': '최교수',
-      'time': '목15:00~17:00(공2114)'
-    },
-    {
-      'subject': '소프트웨어공학',
-      'professor': '정교수',
-      'time': '금11:00~13:00(공2114)'
-    }
+    {'subject': '컴퓨터네트워크', 'professor': '최교수', 'time': '목15:00~17:00(공2114)'},
+    {'subject': '소프트웨어공학', 'professor': '정교수', 'time': '금11:00~13:00(공2114)'}
   ];
 
   final Map<String, Color> subjectColors = {};
@@ -95,98 +100,108 @@ class _HomePageState extends State<HomePage> {
     final dynamicBoxSize = availableWidth / 5;
 
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: _selectedIndex == 0
+          ? SafeArea(
+              child: Column(
                 children: [
-                  Text(
-                    _getSemesterText(),
-                    style: TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.bold,
+                  Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _getSemesterText(),
+                          style: TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            // 과목 추가 버튼 클릭 시 바텀 시트를 띄움
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled:
+                                  true, // 바텀 시트가 화면의 대부분을 차지하도록 설정
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(15)),
+                              ),
+                              builder: (BuildContext context) {
+                                return const LectureSearchBottomSheet(); // 검색 바텀 시트를 표시
+                              },
+                            );
+                          },
+                          icon: Icon(Icons.add),
+                          label: Text(
+                            '과목 추가',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      // 과목 추가 버튼 클릭 시 바텀 시트를 띄움
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true, // 바텀 시트가 화면의 대부분을 차지하도록 설정
-                        shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Stack(
+                          children: [
+                            Table(
+                              columnWidths: {
+                                0: FixedColumnWidth(kTimeColumnWidth),
+                                1: FlexColumnWidth(),
+                                2: FlexColumnWidth(),
+                                3: FlexColumnWidth(),
+                                4: FlexColumnWidth(),
+                                5: FlexColumnWidth(),
+                              },
+                              border: TableBorder.all(
+                                color: Colors.grey.shade300,
+                                width: 0.5,
+                              ),
+                              defaultVerticalAlignment:
+                                  TableCellVerticalAlignment.middle,
+                              children: [
+                                // 요일 헤더
+                                TableRow(
+                                  children: [
+                                    _buildTimeCell(""),
+                                    ...week.map((day) => _buildDayCell(day)),
+                                  ],
+                                ),
+                                ...List.generate(kColumnLength, (index) {
+                                  final hour = index + 9;
+                                  return TableRow(
+                                    children: [
+                                      _buildTimeCell("$hour"),
+                                      ...week.map((day) =>
+                                          _buildEmptyCell(dynamicBoxSize)),
+                                    ],
+                                  );
+                                }),
+                              ],
+                            ),
+                            ...[
+                              ..._timetable.map((subject) =>
+                                  _buildClassContainers(
+                                      subject, dynamicBoxSize))
+                            ].expand((x) => x),
+                          ],
                         ),
-                        builder: (BuildContext context) {
-                          return const LectureSearchBottomSheet(); // 검색 바텀 시트를 표시
-                        },
-                      );
-                    },
-                    icon: Icon(Icons.add),
-                    label: Text(
-                      '과목 추가',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
                       ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
-                      foregroundColor: Colors.white,
                     ),
                   ),
                 ],
               ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Stack(
-                    children: [
-                      Table(
-                        columnWidths: {
-                          0: FixedColumnWidth(kTimeColumnWidth),
-                          1: FlexColumnWidth(),
-                          2: FlexColumnWidth(),
-                          3: FlexColumnWidth(),
-                          4: FlexColumnWidth(),
-                          5: FlexColumnWidth(),
-                        },
-                        border: TableBorder.all(
-                          color: Colors.grey.shade300,
-                          width: 0.5,
-                        ),
-                        defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-                        children: [
-                          // 요일 헤더
-                          TableRow(
-                            children: [
-                              _buildTimeCell(""),
-                              ...week.map((day) => _buildDayCell(day)),
-                            ],
-                          ),
-                          ...List.generate(kColumnLength, (index) {
-                            final hour = index + 9;
-                            return TableRow(
-                              children: [
-                                _buildTimeCell("$hour"),
-                                ...week.map((day) => _buildEmptyCell(dynamicBoxSize)),
-                              ],
-                            );
-                          }),
-                        ],
-                      ),
-                      ...[..._timetable.map((subject) => _buildClassContainers(subject, dynamicBoxSize))].expand((x) => x),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+            )
+          : Container(),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
@@ -252,7 +267,8 @@ class _HomePageState extends State<HomePage> {
     return subjectColors[subject]!;
   }
 
-  List<Widget> _buildClassContainers(Map<String, dynamic> subject, double boxWidth) {
+  List<Widget> _buildClassContainers(
+      Map<String, dynamic> subject, double boxWidth) {
     final List<Widget> containers = [];
     final timeStr = subject['time'].toString();
     final timeSlots = timeStr.split(', ');
@@ -319,7 +335,8 @@ class _HomePageState extends State<HomePage> {
     return containers;
   }
 
-  void _showSubjectDetail(BuildContext context, Map<String, dynamic> subject) { // 과목 상세 페이지
+  void _showSubjectDetail(BuildContext context, Map<String, dynamic> subject) {
+    // 과목 상세 페이지
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -428,9 +445,8 @@ class _HomePageState extends State<HomePage> {
   void _deleteSubject(Map<String, dynamic> subject) {
     setState(() {
       _timetable.removeWhere((item) =>
-        item['subject'] == subject['subject'] &&
-        item['professor'] == subject['professor']
-      );
+          item['subject'] == subject['subject'] &&
+          item['professor'] == subject['professor']);
     });
     Navigator.pop(context); // 팝업 닫기
   }
