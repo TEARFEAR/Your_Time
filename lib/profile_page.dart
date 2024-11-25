@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfileScreen extends StatelessWidget {
   @override
@@ -68,7 +71,73 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-class ProfileCard extends StatelessWidget {
+class ProfileCard extends StatefulWidget {
+  @override
+  _ProfileCardState createState() => _ProfileCardState();
+}
+
+class _ProfileCardState extends State<ProfileCard> {
+  String m_id = '';
+  String m_pw = '';
+  String m_name = '';
+  String m_department = '';
+  int m_tendency = 0;
+  int m_difficulty = 0;
+  int m_learningAmount = 0;
+  bool isLoading = true;
+
+  Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    print('저장된 토큰: $token');
+    return token;
+  }
+
+  Future<void> fetchProfileData() async {
+    try {
+      final token = await getToken();
+
+      if (token == null) {
+        return;
+      }
+
+      final url = Uri.parse('http://localhost:8080/api/members/info');
+      print('요청 URL: $url');
+
+      final response = await http.get(
+        url,
+        headers: {
+          'accept': '*/*',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          m_id = data['id'] ?? '';
+          m_pw = data['pw'] ?? '';
+          m_name = data['name'] ?? '';
+          m_department = data['department'] ?? '';
+          m_tendency = data['tendency'] ?? 0;
+          m_difficulty = data['difficulty'] ?? 0;
+          m_learningAmount = data['learningAmount'] ?? 0;
+          isLoading = false;
+        });
+      } else {
+        print('회원정보를 불러오는데 실패했습니다. 상태 코드: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('회원정보를 불러오는데 실패했습니다. 에러: $e');
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    fetchProfileData();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -78,58 +147,52 @@ class ProfileCard extends StatelessWidget {
         color: Color(0xFFE2E8F0),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 40,
-            backgroundImage: NetworkImage(
-                'https://your-image-url.com'), // 여기에 이미지 URL을 넣으세요.
-          ),
-          SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: isLoading
+          ? Center(child: CircularProgressIndicator())
+          : Row(
               children: [
-                Text(
-                  '민재와 윤진',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+                CircleAvatar(
+                  radius: 40,
+                  backgroundImage: NetworkImage(
+                      'https://your-image-url.com'), // 여기에 이미지 URL을 넣으세요.
+                ),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${m_name}',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text('학과: ${m_department}'),
+                      Text('학번: 2024000000'),
+                      Row(
+                        children: [
+                          Text(
+                            '성향: ${m_tendency}',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                SizedBox(height: 8),
-                Text('학과: 컴퓨터융합학부'),
-                Text('학번: 2024000000'),
-                Row(
-                  children: [
-                    Text(
-                      '성향: ',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    Text(
-                      '도전형🔥',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.red,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                ElevatedButton(
+                  onPressed: () {
+                    // 정보 수정 버튼 기능
+                  },
+                  child: Text('회원 정보 수정'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFFCBD5E0),
+                  ),
                 ),
               ],
             ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // 정보 수정 버튼 기능
-            },
-            child: Text('회원 정보 수정'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFFCBD5E0),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

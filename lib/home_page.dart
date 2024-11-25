@@ -30,24 +30,22 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _selectedIndex = index;
       });
-
-      // Navigator 스택을 정리하여 홈 화면으로 돌아옴
       Navigator.popUntil(context, (route) => route.isFirst);
     }
   }
 
-  void _showProfileScreen() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
-      ),
-      builder: (BuildContext context) {
-        return ProfileScreen(); // ProfileScreen을 모달로 표시
-      },
-    );
-  }
+//  void _showProfileScreen() {
+//    showModalBottomSheet(
+//      context: context,
+//      isScrollControlled: true,
+//      shape: RoundedRectangleBorder(
+//        borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+//      ),
+//      builder: (BuildContext context) {
+//        return ProfileScreen(); // ProfileScreen을 모달로 표시
+//      },
+//    );
+//  }
 
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -75,20 +73,16 @@ class _HomePageState extends State<HomePage> {
         return;
       }
 
-      final url = Uri.parse('http://10.0.2.2:8080/api/members/info');
+      final url = Uri.parse('http://localhost:8080/api/members/info');
       print('요청 URL: $url');
 
       final response = await http.get(
         url,
         headers: {
-          'Content-Type': 'application/json',
+          'accept': '*/*',
           'Authorization': 'Bearer $token',
         },
       );
-
-      print('응답 상태 코드: ${response.statusCode}');
-      print('응답 헤더: ${response.headers}');
-      print('응답 내용: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -102,10 +96,8 @@ class _HomePageState extends State<HomePage> {
           m_learningAmount = data['learningAmount'] ?? 0;
           isLoading = false;
         });
-        print('회원정보 불러오기 성공: $data');
       } else {
         print('회원정보를 불러오는데 실패했습니다. 상태 코드: ${response.statusCode}');
-        print('에러 메시지: ${response.body}');
       }
     } catch (e) {
       print('회원정보를 불러오는데 실패했습니다. 에러: $e');
@@ -122,20 +114,33 @@ class _HomePageState extends State<HomePage> {
     {
       'subject': '데이터베이스',
       'professor': '김교수',
-      'time': '월12:00~14:00(공2114), 화17:00~19:00(공2114)'
+      'time': '월12:00~14:00(공2114), 화17:00~19:00(공2114)',
+      'lecture_id': '1001-7001',
     },
     {
       'subject': '알고리즘',
       'professor': '이교수',
-      'time': '화13:00~15:00(공2114), 목13:00~15:00(공2114)'
+      'time': '화13:00~15:00(공2114), 목13:00~15:00(공2114)',
+      'lecture_id': '1001-7002',
     },
     {
       'subject': '운영체제',
       'professor': '박교수',
-      'time': '수10:00~12:00(공2114), 목10:00~12:00(공2114)'
+      'time': '수10:00~12:00(공2114), 목10:00~12:00(공2114)',
+      'lecture_id': '1001-7003' ,
     },
-    {'subject': '컴퓨터네트워크', 'professor': '최교수', 'time': '목15:00~17:00(공2114)'},
-    {'subject': '소프트웨어공학', 'professor': '정교수', 'time': '금11:00~13:00(공2114)'}
+    {
+      'subject': '컴퓨터네트워크',
+      'professor': '최교수',
+      'time': '목15:00~17:00(공2114)',
+      'lecture_id': '1001-7007' ,
+    },
+    {
+      'subject': '소프트웨어공학',
+      'professor': '정교수',
+      'time': '금11:00~13:00(공2114)',
+      'lecture_id': '1001-7008',
+    },
   ];
 
   final Map<String, Color> subjectColors = {};
@@ -407,111 +412,176 @@ class _HomePageState extends State<HomePage> {
     return containers;
   }
 
-  void _showSubjectDetail(BuildContext context, Map<String, dynamic> subject) {
-    // 과목 상세 페이지
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
-      ),
-      builder: (BuildContext context) {
-        return Container(
-          width: MediaQuery.of(context).size.width,
-          padding: EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  void _showSubjectDetail(BuildContext context, Map<String, dynamic> subject) async {
+    try {
+      final url = Uri.parse('http://localhost:8080/api/lectures/getLectureInfo');
+      final response = await http.post(
+        url,
+        headers: {
+          'accept': '*/*',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'lectureId': subject['lecture_id'].toString(),
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final rating = data['ratingTotal'] / (data['ratingCount'] == 0 ? 1 : data['ratingCount']);
+        final difficulty = data['difficultyTotal'] / (data['difficultyCount'] == 0 ? 1 : data['difficultyCount']);
+        final learningAmount = data['learningAmountTotal'] / (data['learningAmountCount'] == 0 ? 1 : data['learningAmountCount']);
+
+        // 더미 데이터
+        final List<Map<String, dynamic>> recommendedSubjects = [
+          {
+            'subject': '알고리즘',
+            'professor': '공교수',
+            'location': '공5410',
+            'time': '월9:00-15:00, 수9:00-11:00',
+          },
+          {
+            'subject': '기계학습',
+            'professor': '이교수',
+            'location': '공5413',
+            'time': '월9:00-11:00, 금12:00-13:00',
+          },
+          {
+            'subject': '컴퓨터일반',
+            'professor': '박교수',
+            'location': '공5409',
+            'time': '금12:00-16:00',
+          },
+        ];
+
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+          ),
+          builder: (BuildContext context) {
+            return Container(
+              width: MediaQuery.of(context).size.width,
+              padding: EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      '${subject['subject']} - ${subject['professor']}\n ${m_tendency}',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${subject['subject']} - ${subject['professor']}',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: IconButton(
-                      icon: Icon(Icons.delete_outline),
-                      color: Colors.white,
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return AlertDialog(
-                              title: Text('과목 삭제'),
-                              content: Text('이 과목을 시간표에서 삭제하시겠습니까?'),
-                              actions: [
-                                TextButton(
-                                  child: Text('취소'),
-                                  onPressed: () => Navigator.pop(context),
-                                ),
-                                TextButton(
-                                  child: Text(
-                                    '삭제',
-                                    style: TextStyle(color: Colors.red),
-                                  ),
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                    _deleteSubject(subject);
-                                  },
-                                ),
-                              ],
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Color(0xFFE74C3C),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: IconButton(
+                          icon: Icon(Icons.delete_outline),
+                          color: Colors.white,
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  title: Text('과목 삭제'),
+                                  content: Text('이 과목을 시간표에서 삭제하시겠습니까?'),
+                                  actions: [
+                                    TextButton(
+                                      child: Text('취소'),
+                                      onPressed: () => Navigator.pop(context),
+                                    ),
+                                    TextButton(
+                                      child: Text('삭제', style: TextStyle(color: Colors.red)),
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        _deleteSubject(subject);
+                                      },
+                                    ),
+                                  ],
+                                );
+                              },
                             );
                           },
-                        );
-                      },
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 20),
+                  Text(
+                    '과목 난이도 - ${_getDifficultyText(difficulty)}',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Text('평점 - ', style: TextStyle(fontSize: 16)),
+                      ...List.generate(
+                        rating.floor(), 
+                        (index) => Icon(Icons.star, size: 16)
+                      ),
+                      if (rating % 1 > 0)
+                        Icon(Icons.star_half, size: 16),
+                      Text(' (${rating.toStringAsFixed(1)}/5.0)', style: TextStyle(fontSize: 16)),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    '학업량 - ${_getLearningAmountText(learningAmount)}',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  SizedBox(height: 24),
+                  Text(
+                    '대체 과목',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
+                  SizedBox(height: 12),
+                  ...recommendedSubjects.map((rec) => Padding(
+                    padding: EdgeInsets.only(bottom: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${rec['subject']} / ${rec['location']} / ${rec['time']}',
+                          style: TextStyle(fontSize: 15),
+                        ),
+                      ],
+                    ),
+                  )).toList(),
+                  SizedBox(height: 20),
                 ],
               ),
-              SizedBox(height: 16),
-              Text(
-                '과목 난이도 - 상',
-                style: TextStyle(fontSize: 14),
-              ),
-              SizedBox(height: 8),
-              Row(
-                children: [
-                  Text('평점 - '),
-                  ...List.generate(4, (index) => Icon(Icons.star, size: 16)),
-                  Icon(Icons.star_half, size: 16),
-                  Text(' (4.0/5.0)'),
-                ],
-              ),
-              SizedBox(height: 8),
-              Text('학업량 - 많음'),
-              SizedBox(height: 16),
-              Divider(),
-              SizedBox(height: 16),
-              Text(
-                '대체 과목',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 12),
-              Text('알고리즘 / 공5410 / 월9:00-15:00, 수9:00-11:00'),
-              SizedBox(height: 8),
-              Text('기계학습 / 공5413 / 월9:00-11:00, 금12:00-13:00'),
-              SizedBox(height: 8),
-              Text('컴퓨터일반 / 공5409 / 금12:00-16:00'),
-              SizedBox(height: 20),
-            ],
-          ),
+            );
+          },
         );
-      },
-    );
+      }
+    } catch (e) {
+      print('강의 평가를 불러오는데 실패했습니다. 에러: $e');
+    }
+  }
+
+  String _getDifficultyText(double difficulty) {
+    if (difficulty >= 3.75) return '상';
+    if (difficulty >= 2.25) return '중';
+    return '하';
+  }
+
+  String _getLearningAmountText(double amount) {
+    if (amount >= 3.75) return '많음';
+    if (amount >= 2.25) return '보통';
+    return '적음';
   }
 
   void _deleteSubject(Map<String, dynamic> subject) {
@@ -520,6 +590,6 @@ class _HomePageState extends State<HomePage> {
           item['subject'] == subject['subject'] &&
           item['professor'] == subject['professor']);
     });
-    Navigator.pop(context); // 팝업 닫기
+    Navigator.pop(context);
   }
 }
