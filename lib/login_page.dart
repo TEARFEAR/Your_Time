@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import './home_page.dart';
 import './signup_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -27,16 +28,24 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (response.statusCode == 200) {
-        print("로그인 성공");
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => HomePage()),
-        );
-      } else if (response.statusCode == 401) {
-        print("로그인 실패");
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('로그인 실패! 아이디와 비밀번호를 확인해주세요.')),
-        );
+        final Map<String, dynamic> data = json.decode(response.body);
+        if (data['token'] == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('로그인 실패! 아이디와 비밀번호를 확인해주세요.')),
+          );
+        } else {
+          String token = data['token'];
+          SharedPreferences prefs = await SharedPreferences.getInstance();
+          await prefs.setString('token', token);
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("로그인 성공")),
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => HomePage()),
+          );
+        }
       } else {
         print("알 수 없는 오류 발생: ${response.statusCode}");
       }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'lecture_search_bottom_sheet.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'profile_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -44,6 +47,69 @@ class _HomePageState extends State<HomePage> {
         return ProfileScreen(); // ProfileScreen을 모달로 표시
       },
     );
+  }
+
+  Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    print('저장된 토큰: $token');
+    return token;
+  }
+
+  String m_id = '';
+  String m_pw = '';
+  String m_name = '';
+  String m_department = '';
+  int m_tendency = 0;
+  int m_difficulty = 0;
+  int m_learningAmount = 0;
+  bool isLoading = true;
+
+  Future<void> fetchProfileData() async {
+    try {
+      final token = await getToken();
+      print('토큰: $token');
+
+      if (token == null) {
+        print('토큰이 없습니다.');
+        return;
+      }
+
+      final url = Uri.parse('http://10.0.2.2:8080/api/members/info');
+      print('요청 URL: $url');
+
+      final response = await http.get(
+        url,
+        headers: {
+          'accept': '*/*',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('응답 상태 코드: ${response.statusCode}');
+      print('응답 헤더: ${response.headers}');
+      print('응답 내용: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          m_id = data['id'] ?? '';
+          m_pw = data['pw'] ?? '';
+          m_name = data['name'] ?? '';
+          m_department = data['department'] ?? '';
+          m_tendency = data['tendency'] ?? 0;
+          m_difficulty = data['difficulty'] ?? 0;
+          m_learningAmount = data['learningAmount'] ?? 0;
+          isLoading = false;
+        });
+        print('회원정보 불러오기 성공: $data');
+      } else {
+        print('회원정보를 불러오는데 실패했습니다. 상태 코드: ${response.statusCode}');
+        print('에러 메시지: ${response.body}');
+      }
+    } catch (e) {
+      print('회원정보를 불러오는데 실패했습니다. 에러: $e');
+    }
   }
 
   final List<String> week = ['월', '화', '수', '목', '금'];
@@ -91,6 +157,12 @@ class _HomePageState extends State<HomePage> {
     final semester = (month >= 2 && month <= 7) ? 1 : 2;
 
     return '$year년 $semester학기\n시간표';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    fetchProfileData();
   }
 
   @override
@@ -356,7 +428,7 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   Expanded(
                     child: Text(
-                      '${subject['subject']} - ${subject['professor']}',
+                      '${subject['subject']} - ${subject['professor']}\n ${m_tendency}',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
