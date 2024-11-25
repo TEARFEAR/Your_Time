@@ -81,7 +81,7 @@ class _HomePageState extends State<HomePage> {
       final response = await http.get(
         url,
         headers: {
-          'accept': '*/*',
+          'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
       );
