@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'profile_edit.dart';
 
 class ProfileScreen extends StatelessWidget {
   @override
@@ -101,7 +102,7 @@ class _ProfileCardState extends State<ProfileCard> {
         return;
       }
 
-      final url = Uri.parse('http://localhost:8080/api/members/info');
+      final url = Uri.parse('http://10.0.2.2:8080/api/members/info');
       print('요청 URL: $url');
 
       final response = await http.get(
@@ -119,9 +120,9 @@ class _ProfileCardState extends State<ProfileCard> {
           m_pw = data['pw'] ?? '';
           m_name = data['name'] ?? '';
           m_department = data['department'] ?? '';
-          m_tendency = data['tendency'] ?? 0;
-          m_difficulty = data['difficulty'] ?? 0;
-          m_learningAmount = data['learningAmount'] ?? 0;
+          m_tendency = (data['tendency'] as num).toInt(); // double -> int 변환
+          m_difficulty = (data['difficulty'] as num).toInt(); // double -> int 변환
+          m_learningAmount = (data['learningAmount'] as num).toInt(); // double -> int 변환
           isLoading = false;
         });
       } else {
@@ -129,6 +130,19 @@ class _ProfileCardState extends State<ProfileCard> {
       }
     } catch (e) {
       print('회원정보를 불러오는데 실패했습니다. 에러: $e');
+    }
+  }
+
+  String getTendencyText(int tendency) {
+    switch (tendency) {
+      case 1:
+        return '안전형';
+      case 2:
+        return '밸런스형';
+      case 3:
+        return '도전형';
+      default:
+        return '알 수 없음';
     }
   }
 
@@ -150,52 +164,65 @@ class _ProfileCardState extends State<ProfileCard> {
       child: isLoading
           ? Center(child: CircularProgressIndicator())
           : Row(
+        children: [
+          CircleAvatar(
+            radius: 40,
+            backgroundImage: NetworkImage(
+                'https://your-image-url.com'), // 여기에 이미지 URL을 넣으세요.
+          ),
+          SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  radius: 40,
-                  backgroundImage: NetworkImage(
-                      'https://your-image-url.com'), // 여기에 이미지 URL을 넣으세요.
-                ),
-                SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${m_name}',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text('학과: ${m_department}'),
-                      Text('학번: 2024000000'),
-                      Row(
-                        children: [
-                          Text(
-                            '성향: ${m_tendency}',
-                            style: TextStyle(fontSize: 16),
-                          ),
-                        ],
-                      ),
-                    ],
+                Text(
+                  '${m_name}',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                ElevatedButton(
-                  onPressed: () {
-                    // 정보 수정 버튼 기능
-                  },
-                  child: Text('회원 정보 수정'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFFCBD5E0),
-                  ),
+                SizedBox(height: 8),
+                Text('학과: ${m_department}'),
+                Text('학번: 2024000000'),
+                Row(
+                  children: [
+                    Text(
+                      '성향: ${getTendencyText(m_tendency)}',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ],
                 ),
               ],
             ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              // Navigate to ProfileEditScreen and wait for the result
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => ProfileEditScreen()),
+              );
+
+              // Refresh the profile data if changes were made
+              if (result == true) {
+                setState(() {
+                  isLoading = true; // Show loading while refreshing
+                });
+                fetchProfileData(); // Refresh the data
+              }
+            },
+            child: Text('회원 정보 수정'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(0xFFCBD5E0),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
+
 
 class EvaluationButton extends StatelessWidget {
   final IconData icon;
