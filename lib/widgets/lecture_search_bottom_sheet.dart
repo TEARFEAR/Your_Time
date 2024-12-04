@@ -28,7 +28,6 @@ class _LectureSearchBottomSheetState extends State<LectureSearchBottomSheet> {
 
   // 검색 버튼을 눌렀을 때 호출되는 함수
   void searchButtonPressed() async {
-    await fetchLectures(); // 전체 강의 정보 DB에 저장
 
     // 강의 검색 후 결과 받아오기
     List<dynamic> lectures = await searchLecturesByName(subjectName);
