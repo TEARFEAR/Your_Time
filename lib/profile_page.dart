@@ -4,9 +4,21 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'profile_edit.dart';
 
+// provider
+import 'package:provider/provider.dart';
+import 'providers/profile_provider.dart';
+
+//widget
+import 'widgets/custom_bottom_navigation.dart';
+
 class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    // ProfileProvider에서 fetchProfileData 호출
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<ProfileProvider>(context, listen: false).fetchProfileData();
+    });
+
     return Scaffold(
       backgroundColor: Color(0xFFF1F3F6),
       appBar: AppBar(
@@ -49,19 +61,9 @@ class ProfileScreen extends StatelessWidget {
           ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: '홈',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: '내 정보',
-          ),
-        ],
-        currentIndex: 1,
-        onTap: (index) {
+      bottomNavigationBar: CustomBottomNavigationBar(
+        currentIndex: 1, // '내 정보' 페이지이므로 1로 설정
+        onItemTapped: (index) {
           if (index == 0) {
             // "홈" 버튼 클릭 시 이전 화면으로 돌아감
             Navigator.pop(context);
