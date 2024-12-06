@@ -11,69 +11,136 @@ import 'providers/profile_provider.dart';
 
 //widget
 import 'widgets/custom_bottom_navigation.dart';
+import 'package:fl_chart/fl_chart.dart';
 
-class ProfileScreen extends StatelessWidget {
+class AverageGradeChart extends StatelessWidget {
+  final Map<String, double> averageGrades;
+
+  AverageGradeChart({required this.averageGrades});
+
   @override
   Widget build(BuildContext context) {
-    // ProfileProvider에서 fetchProfileData 호출
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<ProfileProvider>(context, listen: false).fetchProfileData();
-    });
-
-    return Scaffold(
-      backgroundColor: Color(0xFFF1F3F6),
-      appBar: AppBar(
-        title: Text('내 정보'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: Column(
-        children: [
-          ProfileCard(), // ProfileCard 위젯 사용
-          Expanded(
-            child: GridView.count(
-              padding: EdgeInsets.all(16),
-              crossAxisCount: 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              // children: [
-              //   EvaluationButton(
-              //     icon: Icons.star,
-              //     label: '강의 평점 평가',
-              //     color: Colors.amber,
-              //   ),
-              //   EvaluationButton(
-              //     icon: Icons.show_chart,
-              //     label: '강의 난이도 평가',
-              //     color: Colors.redAccent,
-              //   ),
-              //   EvaluationButton(
-              //     icon: Icons.insert_drive_file,
-              //     label: '학습량 평가',
-              //     color: Colors.blueAccent,
-              //   ),
-              //   EvaluationButton(
-              //     icon: Icons.more_horiz,
-              //     label: '...',
-              //     color: Colors.grey,
-              //   ),
-              // ],
-            ),
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: BarChart(
+        BarChartData(
+          titlesData: FlTitlesData(
+            leftTitles: SideTitles(showTitles: true, getTitles: (value) {
+              return value.toInt().toString();  // y축의 학점 (0부터 5까지)
+            }),
+            bottomTitles: SideTitles(showTitles: true, getTitles: (value) {
+              // x축의 연도와 학기 표시
+              String key = averageGrades.keys.toList()[value.toInt()];
+              return key;
+            }),
           ),
-        ],
-      ),
-      bottomNavigationBar: CustomBottomNavigationBar(
-        currentIndex: 1, // '내 정보' 페이지이므로 1로 설정
-        onItemTapped: (index) {
-          if (index == 0) {
-            // "홈" 버튼 클릭 시 이전 화면으로 돌아감
-            Navigator.pop(context);
-          }
-        },
+          borderData: FlBorderData(show: true),
+          barGroups: averageGrades.entries.map((entry) {
+            return BarChartGroupData(
+              x: averageGrades.keys.toList().indexOf(entry.key),  // x축: 연도와 학기
+              barRods: [
+                BarChartRodData(
+                  y: entry.value,  // y축: 학점
+                  width: 16,
+                  colors: [Colors.blue],
+                  borderRadius: BorderRadius.zero,
+                ),
+              ],
+              showingTooltipIndicators: [0],  // ToolTip 표시
+            );
+          }).toList(),
+          gridData: FlGridData(show: true),  // 격자 표시
+        ),
       ),
     );
   }
 }
+
+class ProfileScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, double>>(
+      future: fetchAverageGrades(),  // API 호출하여 평균 학점 데이터 가져오기
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Scaffold(
+            appBar: AppBar(title: Text('내 정보')),
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Scaffold(
+            appBar: AppBar(title: Text('내 정보')),
+            body: Center(child: Text('오류 발생: ${snapshot.error}')),
+          );
+        }
+
+        final averageGrades = snapshot.data ?? {};
+        return Scaffold(
+          appBar: AppBar(title: Text('내 정보')),
+          body: Column(
+            children: [
+              ProfileCard(),
+              Expanded(child: AverageGradeChart(averageGrades: averageGrades)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+Future<Map<String, double>> fetchAverageGrades() async {
+  Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    print('저장된 토큰: $token');
+    return token;
+  }
+
+  final token = await getToken();
+  if (token == null) return {};
+
+  final Map<String, double> averageGrades = {};
+
+  final semesters = [
+    {'year': '2024', 'semester': '1학기'},
+  ];
+
+  for (var semester in semesters) {
+    final url = Uri.parse('http://localhost:8080/api/lectures/average-grade');
+    final response = await http.post(
+      url,
+      headers: {
+        'accept': '*/*',
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'year': semester['year'],
+        'semester': semester['semester'],
+        'page': 0,
+        'size': 0,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data != null) {
+        // Assuming the response body contains a plain string value
+        final averageGrade = double.tryParse(data.toString()) ?? 0.0;
+        averageGrades['${semester['year']} ${semester['semester']}'] = averageGrade;
+      }
+    } else {
+      print('학점 계산에 실패했습니다. 상태 코드: ${response.statusCode}');
+    }
+  }
+
+  return averageGrades;
+}
+
+
 
 class ProfileCard extends StatefulWidget {
   @override
@@ -81,66 +148,65 @@ class ProfileCard extends StatefulWidget {
 }
 
 class _ProfileCardState extends State<ProfileCard> {
-String m_id = '';
-String m_pw = '';
-String m_name = '';
-String m_department = '';
-int m_tendency = 0;
-int m_difficulty = 0;
-int m_learningAmount = 0;
-bool isLoading = true;
-String profileImageUrl = ''; // To store the image URL
+  String m_id = '';
+  String m_pw = '';
+  String m_name = '';
+  String m_department = '';
+  int m_tendency = 0;
+  int m_difficulty = 0;
+  int m_learningAmount = 0;
+  bool isLoading = true;
+  String profileImageUrl = ''; // To store the image URL
 
-// Add ImagePicker instance
-final ImagePicker _picker = ImagePicker();
+  // Add ImagePicker instance
+  final ImagePicker _picker = ImagePicker();
 
-Future<String?> getToken() async {
-  final prefs = await SharedPreferences.getInstance();
-  final token = prefs.getString('token');
-  print('저장된 토큰: $token');
-  return token;
-}
-
-Future<void> fetchProfileData() async {
-  try {
-    final token = await getToken();
-    if (token == null) {
-      return;
-    }
-
-    final url = Uri.parse('http://localhost:8080/api/members/info');
-    print('요청 URL: $url');
-
-    final response = await http.get(
-      url,
-      headers: {
-        'accept': '*/*',
-        'Authorization': 'Bearer $token',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      setState(() {
-        m_id = data['id'] ?? '';
-        m_pw = data['pw'] ?? '';
-        m_name = data['name'] ?? '';
-        m_department = data['department'] ?? '';
-        m_tendency = (data['tendency'] as num).toInt();
-        m_difficulty = (data['difficulty'] as num).toInt();
-        m_learningAmount = (data['learningAmount'] as num).toInt();
-        isLoading = false;
-      });
-    } else {
-      print('회원정보를 불러오는데 실패했습니다. 상태 코드: ${response.statusCode}');
-    }
-  } catch (e) {
-    print('회원정보를 불러오는데 실패했습니다. 에러: $e');
+  Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    print('저장된 토큰: $token');
+    return token;
   }
-}
 
-// Fetch the profile image
-// Profile image fetch method
+  Future<void> fetchProfileData() async {
+    try {
+      final token = await getToken();
+      if (token == null) {
+        return;
+      }
+
+      final url = Uri.parse('http://localhost:8080/api/members/info');
+      print('요청 URL: $url');
+
+      final response = await http.get(
+        url,
+        headers: {
+          'accept': '*/*',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          m_id = data['id'] ?? '';
+          m_pw = data['pw'] ?? '';
+          m_name = data['name'] ?? '';
+          m_department = data['department'] ?? '';
+          m_tendency = (data['tendency'] as num).toInt();
+          m_difficulty = (data['difficulty'] as num).toInt();
+          m_learningAmount = (data['learningAmount'] as num).toInt();
+          isLoading = false;
+        });
+      } else {
+        print('회원정보를 불러오는데 실패했습니다. 상태 코드: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('회원정보를 불러오는데 실패했습니다. 에러: $e');
+    }
+  }
+
+  // Fetch the profile image
   Future<void> fetchProfileImage() async {
     try {
       final token = await getToken();
@@ -166,7 +232,7 @@ Future<void> fetchProfileData() async {
     }
   }
 
-// Upload profile image method
+  // Upload profile image method
   Future<void> uploadProfileImage(XFile image) async {
     try {
       final token = await getToken();
@@ -190,7 +256,7 @@ Future<void> fetchProfileData() async {
     }
   }
 
-// Image picker method
+  // Image picker method
   Future<void> pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
@@ -232,19 +298,19 @@ Future<void> fetchProfileData() async {
           : Row(
         children: [
           GestureDetector(
-            onTap: pickImage, // Trigger image picker when tapped
+            onTap: pickImage,
             child: CircleAvatar(
               radius: 40,
               backgroundImage: profileImageUrl.isNotEmpty
                   ? NetworkImage(profileImageUrl)
-                  : null, // Use default icon if no image URL
+                  : null,
               child: profileImageUrl.isEmpty
                   ? Icon(
-                Icons.person, // Default icon when no profile image is available
+                Icons.person,
                 size: 40,
-                color: Colors.white, // Icon color (white in this case)
+                color: Colors.white,
               )
-                  : null, // Do not show the icon if there's an image
+                  : null,
             ),
           ),
           SizedBox(width: 16),
@@ -253,14 +319,14 @@ Future<void> fetchProfileData() async {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${m_name}',
+                  '$m_name',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 SizedBox(height: 8),
-                Text('학과: ${m_department}'),
+                Text('학과: $m_department'),
                 Text('학번: 2024000000'),
                 Row(
                   children: [
@@ -275,68 +341,22 @@ Future<void> fetchProfileData() async {
           ),
           ElevatedButton(
             onPressed: () async {
-              // Navigate to ProfileEditScreen and wait for the result
               final result = await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => ProfileEditScreen()),
               );
 
-              // Refresh the profile data if changes were made
               if (result == true) {
                 setState(() {
-                  isLoading = true; // Show loading while refreshing
+                  isLoading = true;
                 });
-                fetchProfileData(); // Refresh the data
+                fetchProfileData(); // Refresh data
+                fetchProfileImage(); // Refresh image
               }
             },
             child: Text('회원 정보 수정'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Color(0xFFCBD5E0),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-}
-
-class EvaluationButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  EvaluationButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: () {
-        // 버튼 기능 추가
-      },
-      style: ElevatedButton.styleFrom(
-        foregroundColor: color,
-        backgroundColor: Colors.white,
-        elevation: 1,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 40),
-          SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.black,
-              fontWeight: FontWeight.w500,
             ),
           ),
         ],

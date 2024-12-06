@@ -40,7 +40,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
+  fl_chart: ^0.40.0
   http: ^0.13.3 # http 라이브러리 사용
 
   # The "flutter_lints" package below contains a set of recommended lints to
