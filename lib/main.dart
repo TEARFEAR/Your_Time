@@ -26,6 +26,7 @@ class MyApp extends StatelessWidget {
       title: 'SchoolPlanner',
       theme: ThemeData(
         primarySwatch: Colors.blue,
+        fontFamily: 'NotoSansKR',
       ),
       home: LoginPage(), // 로그인 화면을 초기 화면으로 설정
       routes: {

@@ -21,7 +21,7 @@ class ProfileProvider with ChangeNotifier {
         return;
       }
 
-      final url = Uri.parse('http://localhost:8080/api/members/info');
+      final url = Uri.parse('http://10.0.2.2:8080/api/members/info');
       print('요청 URL: $url');
 
       final response = await http.get(

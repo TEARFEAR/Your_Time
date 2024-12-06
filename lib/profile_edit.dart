@@ -43,7 +43,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   // Method to send updated data to the server
   Future<void> updateProfile() async {
-    final String url = 'http://localhost:8080/api/members/update';
+    final String url = 'http://10.0.2.2:8080/api/members/update';
 
     try {
       // Fetch the token

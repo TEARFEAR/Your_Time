@@ -25,31 +25,45 @@ class AverageGradeChart extends StatelessWidget {
       child: BarChart(
         BarChartData(
           titlesData: FlTitlesData(
-            leftTitles: SideTitles(showTitles: true, getTitles: (value) {
-              return value.toInt().toString();  // y축의 학점 (0부터 5까지)
-            }),
-            bottomTitles: SideTitles(showTitles: true, getTitles: (value) {
-              // x축의 연도와 학기 표시
-              String key = averageGrades.keys.toList()[value.toInt()];
-              return key;
-            }),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                getTitlesWidget: (value, meta) {
+                  return Text(value.toInt().toString(), style: TextStyle(fontSize: 10)); // y축의 학점
+                },
+              ),
+            ),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                getTitlesWidget: (value, meta) {
+                  // x축의 연도와 학기 표시
+                  if (value.toInt() < averageGrades.keys.length) {
+                    return Text(
+                      averageGrades.keys.toList()[value.toInt()],
+                      style: TextStyle(fontSize: 10),
+                    );
+                  }
+                  return const Text('');
+                },
+              ),
+            ),
           ),
           borderData: FlBorderData(show: true),
           barGroups: averageGrades.entries.map((entry) {
             return BarChartGroupData(
-              x: averageGrades.keys.toList().indexOf(entry.key),  // x축: 연도와 학기
+              x: averageGrades.keys.toList().indexOf(entry.key), // x축: 연도와 학기
               barRods: [
                 BarChartRodData(
-                  y: entry.value,  // y축: 학점
+                  toY: entry.value, // toY로 변경
                   width: 16,
-                  colors: [Colors.blue],
+                  color: Colors.blue,
                   borderRadius: BorderRadius.zero,
                 ),
               ],
-              showingTooltipIndicators: [0],  // ToolTip 표시
             );
           }).toList(),
-          gridData: FlGridData(show: true),  // 격자 표시
+          gridData: FlGridData(show: true), // 격자 표시
         ),
       ),
     );
@@ -109,7 +123,7 @@ Future<Map<String, double>> fetchAverageGrades() async {
   ];
 
   for (var semester in semesters) {
-    final url = Uri.parse('http://localhost:8080/api/lectures/average-grade');
+    final url = Uri.parse('http://10.0.2.2:8080/api/lectures/average-grade');
     final response = await http.post(
       url,
       headers: {
@@ -175,7 +189,7 @@ class _ProfileCardState extends State<ProfileCard> {
         return;
       }
 
-      final url = Uri.parse('http://localhost:8080/api/members/info');
+      final url = Uri.parse('http://10.0.2.2:8080/api/members/info');
       print('요청 URL: $url');
 
       final response = await http.get(
@@ -187,7 +201,8 @@ class _ProfileCardState extends State<ProfileCard> {
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final decodedResponse = utf8.decode(response.bodyBytes);
+        final data = jsonDecode(decodedResponse);
         setState(() {
           m_id = data['id'] ?? '';
           m_pw = data['pw'] ?? '';
@@ -212,7 +227,7 @@ class _ProfileCardState extends State<ProfileCard> {
       final token = await getToken();
       if (token == null) return;
 
-      final url = Uri.parse('http://localhost:8080/api/members/profileImage');
+      final url = Uri.parse('http://10.0.2.2:8080/api/members/profileImage');
       final response = await http.get(
         url,
         headers: {
