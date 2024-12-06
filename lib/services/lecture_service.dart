@@ -19,7 +19,7 @@ Future<List<dynamic>> searchLecturesByName(String lectureName) async {
 
     // API 호출
     final response = await http.post(
-      Uri.parse("http://10.0.2.2:8080/api/lectures/getLectureInfoByNameContaining"),
+      Uri.parse("http://localhost:8080/api/lectures/getLectureInfoByNameContaining"),
       headers: {
         'Content-Type': 'application/json; charset=UTF-8',
         'Authorization': 'Bearer $token', // 헤더에 토큰 추가

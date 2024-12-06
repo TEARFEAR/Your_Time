@@ -1,11 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/lecture_service.dart'; // API 함수들
 import '../utils/utils.dart';
 
 // Widget
 import 'issue_division_selector.dart'; // 과목 분류 바텀 시트 위젯
+import 'package:http/http.dart' as http;
 
 // provider
 import '../providers/timetable_provider.dart';
@@ -64,17 +68,51 @@ class _LectureSearchBottomSheetState extends State<LectureSearchBottomSheet> {
   }
 
   // 강의를 시간표에 추가하는 함수
-  void addLectureToTimetable(Map<String, dynamic> lecture) {
-    // TimetableProvider 사용
-    Provider.of<TimetableProvider>(context, listen: false).addSubject(lecture);
+  void addLectureToTimetable(Map<String, dynamic> lecture) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
 
-    // 강의 추가 후 메시지 표시
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("'${lecture['subjectName']}' 강의가 시간표에 추가되었습니다."),
-      ),
-    );
+      if (token == null) {
+        throw Exception("토큰이 없습니다. 로그인이 필요합니다.");
+      }
+
+      // 수강 신청 API 호출
+      final response = await http.post(
+        Uri.parse("http://localhost:8080/api/lectures/enrollment"),
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Authorization': 'Bearer $token', // 헤더에 토큰 추가
+        },
+        body: jsonEncode({"lectureId": lecture["id"]}),
+      );
+
+      if (response.statusCode == 200) {
+        // 강의 추가 성공 시 메시지 표시
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("'${lecture['subjectName']}' 강의가 성공적으로 수강 신청되었습니다."),
+          ),
+        );
+      } else {
+        // 강의 추가 실패 시 메시지 표시
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("강의 수강 신청 실패: ${response.statusCode}"),
+          ),
+        );
+      }
+    } catch (error) {
+      // 오류 처리
+      print("강의 수강 신청 중 오류 발생: $error");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("강의 수강 신청 중 오류가 발생했습니다."),
+        ),
+      );
+    }
   }
+
 
   void showAddLectureDialog(Map<String, dynamic> lecture) {
     showDialog(

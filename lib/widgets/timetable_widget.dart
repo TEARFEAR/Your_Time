@@ -248,7 +248,7 @@ class TimetableWidget extends StatelessWidget {
 
   void _showSubjectDetail(BuildContext context, Map<String, dynamic> subject) async {
     try {
-      final url = Uri.parse('http://10.0.2.2:8080/api/lectures/getLectureInfo');
+      final url = Uri.parse('http://localhost:8080/api/lectures/getLectureInfo');
       final response = await http.post(
         url,
         headers: {

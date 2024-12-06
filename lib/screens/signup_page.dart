@@ -28,7 +28,7 @@ class _SignupPageState extends State<SignupPage> {
     final department = _departmentController.text;
     final tendency = preferenceMap[selectedPreference];
 
-    final url = Uri.parse('http://10.0.2.2:8080/api/auth/signup');
+    final url = Uri.parse('http://localhost:8080/api/auth/signup');
     try {
       final response = await http.post(
         url,
