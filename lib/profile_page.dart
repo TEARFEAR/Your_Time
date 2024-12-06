@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'profile_edit.dart';
@@ -35,28 +36,28 @@ class ProfileScreen extends StatelessWidget {
               crossAxisCount: 2,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
-              children: [
-                EvaluationButton(
-                  icon: Icons.star,
-                  label: '강의 평점 평가',
-                  color: Colors.amber,
-                ),
-                EvaluationButton(
-                  icon: Icons.show_chart,
-                  label: '강의 난이도 평가',
-                  color: Colors.redAccent,
-                ),
-                EvaluationButton(
-                  icon: Icons.insert_drive_file,
-                  label: '학습량 평가',
-                  color: Colors.blueAccent,
-                ),
-                EvaluationButton(
-                  icon: Icons.more_horiz,
-                  label: '...',
-                  color: Colors.grey,
-                ),
-              ],
+              // children: [
+              //   EvaluationButton(
+              //     icon: Icons.star,
+              //     label: '강의 평점 평가',
+              //     color: Colors.amber,
+              //   ),
+              //   EvaluationButton(
+              //     icon: Icons.show_chart,
+              //     label: '강의 난이도 평가',
+              //     color: Colors.redAccent,
+              //   ),
+              //   EvaluationButton(
+              //     icon: Icons.insert_drive_file,
+              //     label: '학습량 평가',
+              //     color: Colors.blueAccent,
+              //   ),
+              //   EvaluationButton(
+              //     icon: Icons.more_horiz,
+              //     label: '...',
+              //     color: Colors.grey,
+              //   ),
+              // ],
             ),
           ),
         ],
@@ -80,58 +81,120 @@ class ProfileCard extends StatefulWidget {
 }
 
 class _ProfileCardState extends State<ProfileCard> {
-  String m_id = '';
-  String m_pw = '';
-  String m_name = '';
-  String m_department = '';
-  int m_tendency = 0;
-  int m_difficulty = 0;
-  int m_learningAmount = 0;
-  bool isLoading = true;
+String m_id = '';
+String m_pw = '';
+String m_name = '';
+String m_department = '';
+int m_tendency = 0;
+int m_difficulty = 0;
+int m_learningAmount = 0;
+bool isLoading = true;
+String profileImageUrl = ''; // To store the image URL
 
-  Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
-    print('저장된 토큰: $token');
-    return token;
+// Add ImagePicker instance
+final ImagePicker _picker = ImagePicker();
+
+Future<String?> getToken() async {
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString('token');
+  print('저장된 토큰: $token');
+  return token;
+}
+
+Future<void> fetchProfileData() async {
+  try {
+    final token = await getToken();
+    if (token == null) {
+      return;
+    }
+
+    final url = Uri.parse('http://localhost:8080/api/members/info');
+    print('요청 URL: $url');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'accept': '*/*',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      setState(() {
+        m_id = data['id'] ?? '';
+        m_pw = data['pw'] ?? '';
+        m_name = data['name'] ?? '';
+        m_department = data['department'] ?? '';
+        m_tendency = (data['tendency'] as num).toInt();
+        m_difficulty = (data['difficulty'] as num).toInt();
+        m_learningAmount = (data['learningAmount'] as num).toInt();
+        isLoading = false;
+      });
+    } else {
+      print('회원정보를 불러오는데 실패했습니다. 상태 코드: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('회원정보를 불러오는데 실패했습니다. 에러: $e');
   }
+}
 
-  Future<void> fetchProfileData() async {
+// Fetch the profile image
+// Profile image fetch method
+  Future<void> fetchProfileImage() async {
     try {
       final token = await getToken();
+      if (token == null) return;
 
-      if (token == null) {
-        return;
-      }
-
-      final url = Uri.parse('http://10.0.2.2:8080/api/members/info');
-      print('요청 URL: $url');
-
+      final url = Uri.parse('http://localhost:8080/api/members/profileImage');
       final response = await http.get(
         url,
         headers: {
-          'accept': '*/*',
           'Authorization': 'Bearer $token',
         },
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
         setState(() {
-          m_id = data['id'] ?? '';
-          m_pw = data['pw'] ?? '';
-          m_name = data['name'] ?? '';
-          m_department = data['department'] ?? '';
-          m_tendency = (data['tendency'] as num).toInt(); // double -> int 변환
-          m_difficulty = (data['difficulty'] as num).toInt(); // double -> int 변환
-          m_learningAmount = (data['learningAmount'] as num).toInt(); // double -> int 변환
-          isLoading = false;
+          profileImageUrl = 'data:image/jpeg;base64,' + base64Encode(response.bodyBytes);
         });
       } else {
-        print('회원정보를 불러오는데 실패했습니다. 상태 코드: ${response.statusCode}');
+        print('프로필 이미지를 불러오는데 실패했습니다. 상태 코드: ${response.statusCode}');
       }
     } catch (e) {
-      print('회원정보를 불러오는데 실패했습니다. 에러: $e');
+      print('프로필 이미지를 불러오는데 실패했습니다. 에러: $e');
+    }
+  }
+
+// Upload profile image method
+  Future<void> uploadProfileImage(XFile image) async {
+    try {
+      final token = await getToken();
+      if (token == null) return;
+
+      final url = Uri.parse('http://localhost:8080/api/members/uploadProfileImage');
+      var request = http.MultipartRequest('POST', url);
+      request.headers['Authorization'] = 'Bearer $token';
+      request.files.add(await http.MultipartFile.fromPath('file', image.path));
+
+      final response = await request.send();
+
+      if (response.statusCode == 200) {
+        print('이미지 업로드 성공');
+        fetchProfileImage(); // Reload image after upload
+      } else {
+        print('이미지 업로드 실패. 상태 코드: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('이미지 업로드 실패. 에러: $e');
+    }
+  }
+
+// Image picker method
+  Future<void> pickImage() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      await uploadProfileImage(image);
     }
   }
 
@@ -152,6 +215,7 @@ class _ProfileCardState extends State<ProfileCard> {
   void initState() {
     super.initState();
     fetchProfileData();
+    fetchProfileImage(); // Fetch profile image when widget is loaded
   }
 
   @override
@@ -167,10 +231,21 @@ class _ProfileCardState extends State<ProfileCard> {
           ? Center(child: CircularProgressIndicator())
           : Row(
         children: [
-          CircleAvatar(
-            radius: 40,
-            backgroundImage: NetworkImage(
-                'https://your-image-url.com'), // 여기에 이미지 URL을 넣으세요.
+          GestureDetector(
+            onTap: pickImage, // Trigger image picker when tapped
+            child: CircleAvatar(
+              radius: 40,
+              backgroundImage: profileImageUrl.isNotEmpty
+                  ? NetworkImage(profileImageUrl)
+                  : null, // Use default icon if no image URL
+              child: profileImageUrl.isEmpty
+                  ? Icon(
+                Icons.person, // Default icon when no profile image is available
+                size: 40,
+                color: Colors.white, // Icon color (white in this case)
+              )
+                  : null, // Do not show the icon if there's an image
+            ),
           ),
           SizedBox(width: 16),
           Expanded(
@@ -223,8 +298,8 @@ class _ProfileCardState extends State<ProfileCard> {
       ),
     );
   }
-}
 
+}
 
 class EvaluationButton extends StatelessWidget {
   final IconData icon;
