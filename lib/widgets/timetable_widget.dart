@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../providers/timetable_provider.dart';
+import '../providers/semester_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class TimetableWidget extends StatelessWidget {
   final double dynamicBoxSize;
@@ -105,8 +107,17 @@ class TimetableWidget extends StatelessWidget {
 
   List<Widget> _buildClassContainers(BuildContext context, Map<String, dynamic> subject, double boxWidth) {
     final List<Widget> containers = [];
+    
+    if (subject['ScheduleInformation'] == null) {
+      print('Warning: ScheduleInformation is null for subject: ${subject['subject']}');
+      return containers;
+    }
 
     final timeDataList = parseTimeStr(subject['ScheduleInformation']);
+    if (timeDataList.isEmpty) {
+      print('Warning: No valid time data for subject: ${subject['subject']}');
+      return containers;
+    }
 
     for (final timeData in timeDataList) {
       final day = timeData['day'];
@@ -117,98 +128,138 @@ class TimetableWidget extends StatelessWidget {
 
       // 요일에 따른 위치 계산
       final dayIndex = week.indexOf(day);
-      final left = kTimeColumnWidth + (dayIndex * boxWidth);
-      final top = 30.0 + ((startHour - 9) * kBoxSize);
+      final left = kTimeColumnWidth + (dayIndex * (boxWidth - 3.0));
+      
+      // 시작 시간에 따른 top 위치 계산
+      final startMinutes = timeData['startMinute'] ?? 0;
+      final endMinutes = timeData['endMinute'] ?? 0;
+      
+      // 시간을 30분 단위로 계산
+      final halfHourBlocks = ((startHour - 9) * 2) + (startMinutes / 30);
+      final top = 35.0 + (halfHourBlocks * (kBoxSize / 2));
+      
+      // 강의 시간 길이 계산 (30분 단위)
+      final durationHalfHours = ((endHour - startHour) * 2) + ((endMinutes - startMinutes) / 30);
+      final height = durationHalfHours * (kBoxSize / 2);
 
       containers.add(
         Positioned(
           left: left,
           top: top,
           child: GestureDetector(
-            onTap: () => _showSubjectDetail(context, subject),
+            onTap: () => _showSubjectDetail(
+              context,
+              {
+                'subject': subject['subject'] ?? '과목명 없음',
+                'professor': subject['professor'] ?? '교수명 없음',
+                'location': location ?? '강의실 정보 없음',
+                'time': subject['ScheduleInformation'] ?? '시간 정보 없음',
+                'lecture_id': subject['lecture_id']
+              },
+            ),
             child: Container(
-              width: boxWidth,
-              height: kBoxSize * duration,
+              width: boxWidth - 2,  // 양쪽 1픽셀 여백
+              height: height,
               decoration: BoxDecoration(
-                color: _getSubjectColor(subject['subjectName']),
-                border: Border.all(
-                  color: Colors.grey.shade300,
-                  width: 0.5,
-                ),
+                color: Colors.blue.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.blue.withOpacity(0.5)),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(3.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      subject['subjectName'],
-                      style: const TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+              padding: const EdgeInsets.all(4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    subject['subject'] ?? '과목명 없음',
+                    style: const TextStyle(fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (location != null && location != "NULL")
                     Text(
                       location,
-                      style: const TextStyle(fontSize: 7),
+                      style: const TextStyle(fontSize: 10),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    Text(
-                      subject['professorInformation'],
-                      style: const TextStyle(fontSize: 7),
-                    ),
-                  ],
-                ),
+                ],
               ),
             ),
           ),
         ),
       );
     }
+    
     return containers;
   }
 
   List<Map<String, dynamic>> parseTimeStr(String? timeStr) {
-    if (timeStr == null || timeStr.trim().isEmpty) {
-      print("No schedule information provided.");
-      return []; // 빈 리스트 반환
+    if (timeStr == null || timeStr.trim().isEmpty || timeStr == "null") {
+      print("No schedule information provided or null value received.");
+      return [];
     }
 
     final List<Map<String, dynamic>> parsedData = [];
-    final timeSlots = timeStr.split(', ').map((slot) => slot.trim()).toList();
+    final timeSlots = timeStr.split(',').map((slot) => slot.trim()).toList();
+
+    Map<String, String> dayMap = {
+      '월': '월', '화': '화', '수': '수', '목': '목', '금': '금',
+    };
 
     for (String timeSlot in timeSlots) {
       try {
-        if (!timeSlot.contains('~')) {
-          print('Invalid timeSlot format: $timeSlot');
-          continue; // 시간 범위(~)가 없는 경우 건너뜀
-        }
+        if (timeSlot.isEmpty) continue;
 
         // 요일 추출
-        final day = timeSlot.substring(0, 1);
-
-        // 장소 여부 확인
-        String location = "NULL";
-        if (timeSlot.contains('(')) {
-          location = timeSlot.split('(')[1].replaceAll(')', '').trim();
+        String? day;
+        for (var key in dayMap.keys) {
+          if (timeSlot.contains(key)) {
+            day = key;
+            break;
+          }
         }
 
-        // 시간 범위 추출
-        final timeRange = timeSlot.split('(')[0];
-        final times = timeRange.substring(1).split('~');
+        if (day == null) {
+          print('Invalid day format in timeSlot: $timeSlot');
+          continue;
+        }
 
-        // times 배열 검증
-        if (times.length != 2 || !times[0].contains(':') || !times[1].contains(':')) {
-          print('Invalid time range: $timeRange');
-          continue; // 잘못된 형식은 건너뜀
+        // 시간과 장소 분리
+        final timeAndLocation = timeSlot.substring(timeSlot.indexOf(day) + 1);
+        if (!timeAndLocation.contains('~')) {
+          print('Invalid time format: $timeAndLocation');
+          continue;
+        }
+
+        final timeAndLocationParts = timeAndLocation.split('(');
+        
+        // 시간 범위 추출
+        final timeRange = timeAndLocationParts[0].trim();
+        final times = timeRange.split('~');
+
+        // 장소 추출
+        String location = "NULL";
+        if (timeAndLocationParts.length > 1) {
+          location = timeAndLocationParts[1].replaceAll(')', '').trim();
+        }
+
+        if (times.length != 2) {
+          print('Invalid time range format: $timeRange');
+          continue;
         }
 
         // 시작 시간과 끝 시간 추출
-        final startHour = int.parse(times[0].split(':')[0]);
-        final startMinute = int.parse(times[0].split(':')[1]);
-        final endHour = int.parse(times[1].split(':')[0]);
-        final endMinute = int.parse(times[1].split(':')[1]);
+        final startTimeParts = times[0].split(':');
+        final endTimeParts = times[1].split(':');
 
-        // 데이터를 리스트에 추가
+        if (startTimeParts.length != 2 || endTimeParts.length != 2) {
+          print('Invalid time format: $timeRange');
+          continue;
+        }
+
+        final startHour = int.parse(startTimeParts[0].trim());
+        final startMinute = int.parse(startTimeParts[1].trim());
+        final endHour = int.parse(endTimeParts[0].trim());
+        final endMinute = int.parse(endTimeParts[1].trim());
+
         parsedData.add({
           'day': day,
           'startHour': startHour,
@@ -219,6 +270,7 @@ class TimetableWidget extends StatelessWidget {
         });
       } catch (e) {
         print('Error parsing timeSlot: $timeSlot. Error: $e');
+        print('Original timeStr: $timeStr');
       }
     }
 
@@ -246,163 +298,176 @@ class TimetableWidget extends StatelessWidget {
     return subjectColors[subject]!;
   }
 
-  void _showSubjectDetail(BuildContext context, Map<String, dynamic> subject) async {
+  Future<void> _showSubjectDetail(BuildContext context, Map<String, dynamic> subject) async {
     try {
-      final url = Uri.parse('http://localhost:8080/api/lectures/getLectureInfo');
-      final response = await http.post(
-        url,
+      print('Subject details: $subject');
+      
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      if (token == null) {
+        throw Exception("토큰이 없습니다. 로그인이 필요합니다.");
+      }
+
+      // 시간표 데이터에서 enrollment_id 가져오기
+      final timetableProvider = Provider.of<TimetableProvider>(context, listen: false);
+      final enrollmentData = timetableProvider.timetable.firstWhere(
+        (item) => item['lecture_id'] == subject['lecture_id'],
+        orElse: () => throw Exception("수강 신청 정보를 찾을 수 없습니다."),
+      );
+
+      final enrollmentId = enrollmentData['enrollment_id'];
+
+      // 과목 상세 정보 가져오기
+      final detailResponse = await http.post(
+        Uri.parse('http://localhost:8080/api/lectures/getLectureInfo'),
         headers: {
-          'accept': '*/*',
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
-          'lectureId': subject['lecture_id'].toString(),
+          'lectureId': subject['lecture_id'],
         }),
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      // 추천 과목 목록 가져오기
+      final recommendResponse = await http.post(
+        Uri.parse('http://localhost:8080/api/lectures/recommendOtherLectures'),
+        headers: {
+          'accept': 'application/json',
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'lectureId': subject['lecture_id'],
+        }),
+      );
+
+      if (detailResponse.statusCode == 200 && recommendResponse.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(detailResponse.bodyBytes));
+        final recommendedLectures = jsonDecode(utf8.decode(recommendResponse.bodyBytes)) as List;
         final rating = data['ratingTotal'] / (data['ratingCount'] == 0 ? 1 : data['ratingCount']);
         final difficulty = data['difficultyTotal'] / (data['difficultyCount'] == 0 ? 1 : data['difficultyCount']);
         final learningAmount = data['learningAmountTotal'] / (data['learningAmountCount'] == 0 ? 1 : data['learningAmountCount']);
 
-        // 더미 데이터
-        final List<Map<String, dynamic>> recommendedSubjects = [
-          {
-            'subject': '알고리즘',
-            'professor': '공교수',
-            'location': '공5410',
-            'time': '월9:00-15:00, 수9:00-11:00',
-          },
-          {
-            'subject': '기계학습',
-            'professor': '이교수',
-            'location': '공5413',
-            'time': '월9:00-11:00, 금12:00-13:00',
-          },
-          {
-            'subject': '컴퓨터일반',
-            'professor': '박교수',
-            'location': '공5409',
-            'time': '금12:00-16:00',
-          },
-        ];
-
         showModalBottomSheet(
           context: context,
           isScrollControlled: true,
+          backgroundColor: Colors.white,
           shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           builder: (BuildContext context) {
-            return Container(
-              width: MediaQuery.of(context).size.width,
-              padding: EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${subject['subject']} - ${subject['professor']}',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+            return SizedBox(
+              height: MediaQuery.of(context).size.height * 0.6,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${data['subjectName']} - ${data['professorInformation']}',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Color(0xFFE74C3C),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          color: Colors.white,
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return AlertDialog(
-                                  title: const Text('과목 삭제'),
-                                  content: const Text('이 과목을 시간표에서 삭제하시겠습니까?'),
-                                  actions: [
-                                    TextButton(
-                                      child: const Text('취소'),
-                                      onPressed: () => Navigator.pop(context),
-                                    ),
-                                    TextButton(
-                                      child: const Text('삭제', style: TextStyle(color: Colors.red)),
-                                      onPressed: () {
-                                        Navigator.pop(context);
-                                        _deleteSubject(context, subject);
-                                      },
-                                    ),
-                                  ],
-                                );
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    '과목 난이도 - ${_getDifficultyText(difficulty)}',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Text('평점 - ', style: TextStyle(fontSize: 16)),
-                      ...List.generate(
-                          rating.floor(),
-                              (index) => Icon(Icons.star, size: 16)
-                      ),
-                      if (rating % 1 > 0)
-                        Icon(Icons.star_half, size: 16),
-                      Text(' (${rating.toStringAsFixed(1)}/5.0)', style: TextStyle(fontSize: 16)),
-                    ],
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    '학업량 - ${_getLearningAmountText(learningAmount)}',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    '대체 과목',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 12),
-                  ...recommendedSubjects.map((rec) => Padding(
-                    padding: EdgeInsets.only(bottom: 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${rec['subject']} / ${rec['location']} / ${rec['time']}',
-                          style: TextStyle(fontSize: 15),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE74C3C),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            color: Colors.white,
+                            onPressed: () => _showDeleteDialog(context, subject),
+                          ),
                         ),
                       ],
                     ),
-                  )).toList(),
-                  SizedBox(height: 20),
-                ],
+                    const SizedBox(height: 20),
+                    Text(
+                      '과목 난이도 - ${_getDifficultyText(difficulty)}',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text('평점 - ', style: TextStyle(fontSize: 16)),
+                        ...List.generate(
+                          rating.floor(),
+                          (index) => const Icon(Icons.star, color: Colors.amber, size: 16)
+                        ),
+                        if (rating % 1 > 0)
+                          const Icon(Icons.star_half, color: Colors.amber, size: 16),
+                        Text(' (${rating.toStringAsFixed(1)}/5.0)', 
+                          style: const TextStyle(fontSize: 16)
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '학업량 - ${_getLearningAmountText(learningAmount)}',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      '추천 과목',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // 추천 과목 목록 (스크롤 가능한 부분)
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: recommendedLectures.length,
+                        itemBuilder: (context, index) {
+                          final lecture = recommendedLectures[index];
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${lecture['subjectName']} / ${lecture['professorInformation']} / ${lecture['scheduleInformation']}',
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => _switchEnrollment(
+                                    context,
+                                    enrollmentId.toString(),
+                                    lecture['id'],
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.black,
+                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  ),
+                                  child: const Text('변경', style: TextStyle(color: Colors.white)),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
         );
       }
     } catch (e) {
-      print('강의 평가를 불러오는데 실패했습니다. 에러: $e');
+      print('강의 정보를 불러오는데 실패했습니다. 에러: $e');
     }
   }
 
@@ -418,11 +483,147 @@ class TimetableWidget extends StatelessWidget {
     return '적음';
   }
 
-  void _deleteSubject(BuildContext context, Map<String, dynamic> subject) {
-    // TimetableProvider에서 removeSubject 호출
-    Provider.of<TimetableProvider>(context, listen: false).removeSubject(subject);
-    Navigator.pop(context); // Bottom sheet 닫기
+  Future<void> _deleteSubject(BuildContext context, Map<String, dynamic> subject) async {
+    try {
+      // 시간표 데이터에서 enrollment_id 가져오기
+      final timetableProvider = Provider.of<TimetableProvider>(context, listen: false);
+      final enrollmentData = timetableProvider.timetable.firstWhere(
+        (item) => item['lecture_id'] == subject['lecture_id'],
+        orElse: () => throw Exception("수강 신청 정보를 찾을 수 없습니다."),
+      );
+
+      final enrollmentId = enrollmentData['enrollment_id'];
+      
+      if (enrollmentId == null) {
+        throw Exception("수강 신청 ID가 없습니다.");
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      if (token == null) {
+        throw Exception("토큰이 없습니다. 로그인이 필요합니다.");
+      }
+
+      // 과목 수강 취소 API 호출
+      final deleteResponse = await http.delete(
+        Uri.parse('http://localhost:8080/api/lectures/deleteEnrollment'),
+        headers: {
+          'accept': '*/*',
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'enrollmentId': int.parse(enrollmentId.toString()),
+        }),
+      );
+
+      if (deleteResponse.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('과목이 성공적으로 삭제되었습니다.')),
+        );
+        Navigator.pop(context); // Bottom sheet 닫기
+        
+        // 시간표 새로고침
+        final semesterProvider = Provider.of<SemesterProvider>(context, listen: false);
+        await semesterProvider.fetchEnrollments();
+      } else {
+        throw Exception('과목 삭제 실패');
+      }
+    } catch (e) {
+      print('과목 삭제 중 오류 발생: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('과목 삭제 중 오류가 발생했습니다.')),
+      );
+    }
   }
 
+  void _showDeleteDialog(BuildContext context, Map<String, dynamic> subject) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('과목 삭제'),
+          content: const Text('이 과목을 시간표에서 삭제하시겠습니까?'),
+          actions: [
+            TextButton(
+              child: const Text('취소'),
+              onPressed: () => Navigator.pop(context),
+            ),
+            TextButton(
+              child: const Text('삭제', style: TextStyle(color: Colors.red)),
+              onPressed: () {
+                Navigator.pop(context);
+                _deleteSubject(context, subject);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _switchEnrollment(BuildContext context, String? enrollmentId, String newLectureId) async {
+    try {
+      if (enrollmentId == null) {
+        throw Exception("수강 신청 ID가 없습니다.");
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      if (token == null) {
+        throw Exception("토큰이 없습니다. 로그인이 필요합니다.");
+      }
+
+      // 현재 과목 수강 취소
+      final deleteResponse = await http.delete(
+        Uri.parse('http://localhost:8080/api/lectures/deleteEnrollment'),
+        headers: {
+          'accept': '*/*',
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'enrollmentId': int.parse(enrollmentId),
+        }),
+      );
+
+      if (deleteResponse.statusCode == 200) {
+        // 새로운 과목 수강 신청
+        final enrollResponse = await http.post(
+          Uri.parse('http://localhost:8080/api/lectures/enrollment'),
+          headers: {
+            'accept': '*/*',
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'lectureId': newLectureId,
+          }),
+        );
+
+        if (enrollResponse.statusCode == 200) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('과목이 성공적으로 변경되었습니다.')),
+          );
+          Navigator.pop(context); // 상세 창 닫기
+          
+          // 시간표 새로고침
+          final semesterProvider = Provider.of<SemesterProvider>(context, listen: false);
+          await semesterProvider.fetchEnrollments();
+        } else {
+          throw Exception('새로운 과목 수강신청 실패');
+        }
+      } else {
+        throw Exception('현재 과목 수강취소 실패');
+      }
+    } catch (e) {
+      print('과목 변경 중 오류 발생: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('과목 변경 중 오류가 발생했습니다.')),
+      );
+    }
+  }
 
 }

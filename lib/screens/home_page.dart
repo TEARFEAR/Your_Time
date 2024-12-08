@@ -12,6 +12,7 @@ import '../widgets/custom_bottom_navigation.dart';
 import 'package:provider/provider.dart';
 import '../providers/profile_provider.dart';
 import '../providers/timetable_provider.dart';
+import '../providers/semester_provider.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -24,13 +25,21 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    // ProfileProvider의 fetchProfileData 호출
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // ProfileProvider 초기화
       Provider.of<ProfileProvider>(context, listen: false).fetchProfileData();
+      
+      // TimetableProvider와 SemesterProvider 연결
+      final timetableProvider = Provider.of<TimetableProvider>(context, listen: false);
+      final semesterProvider = Provider.of<SemesterProvider>(context, listen: false);
+      
+      // SemesterProvider에 TimetableProvider 참조 설정
+      semesterProvider.setTimetableProvider(timetableProvider);
+      
+      // 초기 시간표 데이터 로드
+      semesterProvider.fetchEnrollments();
     });
-
-    // TimetableProvider 초기화 (빈 타임테이블 설정)
-    Provider.of<TimetableProvider>(context, listen: false).setInitialTimetable([]);
   }
 
   void _onItemTapped(int index) {
@@ -73,12 +82,77 @@ class _HomePageState extends State<HomePage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    getSemesterText(),
-                    style: const TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Consumer<SemesterProvider>(
+                    builder: (context, semesterProvider, child) {
+                      return GestureDetector(
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return AlertDialog(
+                                title: Text('학기 선택'),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // 연도 선택
+                                    Container(
+                                      width: double.infinity,
+                                      child: DropdownButton<int>(
+                                        isExpanded: true,
+                                        value: semesterProvider.selectedYear,
+                                        items: List.generate(5, (index) {
+                                          final year = DateTime.now().year - 2 + index;
+                                          return DropdownMenuItem(
+                                            value: year,
+                                            child: Text('$year년'),
+                                          );
+                                        }),
+                                        onChanged: (value) {
+                                          if (value != null) {
+                                            semesterProvider.setYear(value);
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                    SizedBox(height: 16),
+                                    // 학기 선택
+                                    Container(
+                                      width: double.infinity,
+                                      child: DropdownButton<int>(
+                                        isExpanded: true,
+                                        value: semesterProvider.selectedSemester,
+                                        items: [
+                                          DropdownMenuItem(value: 1, child: Text('1학기')),
+                                          DropdownMenuItem(value: 2, child: Text('2학기')),
+                                        ],
+                                        onChanged: (value) {
+                                          if (value != null) {
+                                            semesterProvider.setSemester(value);
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: Text('확인'),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        },
+                        child: Text(
+                          '${semesterProvider.selectedYear}년 ${semesterProvider.selectedSemester}학기\n시간표',
+                          style: TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                   ElevatedButton.icon(
                     onPressed: () {

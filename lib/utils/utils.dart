@@ -16,12 +16,3 @@ List<Map<String, dynamic>> filterLectures({
     return matchesSchedule && matchesCategory;
   }).cast<Map<String, dynamic>>().toList();
 }
-
-String getSemesterText() {
-  final now = DateTime.now();
-  final year = now.year;
-  final month = now.month;
-  final semester = (month >= 2 && month <= 7) ? 1 : 2;
-
-  return '$year년 $semester학기\n시간표';
-}

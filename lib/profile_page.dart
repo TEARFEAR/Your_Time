@@ -123,7 +123,7 @@ Future<Map<String, double>> fetchAverageGrades() async {
   ];
 
   for (var semester in semesters) {
-    final url = Uri.parse('http://10.0.2.2:8080/api/lectures/average-grade');
+    final url = Uri.parse('http://localhost:8080/api/lectures/average-grade');
     final response = await http.post(
       url,
       headers: {
@@ -189,7 +189,7 @@ class _ProfileCardState extends State<ProfileCard> {
         return;
       }
 
-      final url = Uri.parse('http://10.0.2.2:8080/api/members/info');
+      final url = Uri.parse('http://localhost:8080/api/members/info');
       print('요청 URL: $url');
 
       final response = await http.get(
@@ -227,7 +227,7 @@ class _ProfileCardState extends State<ProfileCard> {
       final token = await getToken();
       if (token == null) return;
 
-      final url = Uri.parse('http://10.0.2.2:8080/api/members/profileImage');
+      final url = Uri.parse('http://localhost:8080/api/members/profileImage');
       final response = await http.get(
         url,
         headers: {
