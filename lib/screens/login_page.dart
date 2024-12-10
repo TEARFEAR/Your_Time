@@ -142,7 +142,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
               ),
-              SizedBox(height: 16),
+              SizedBox(height: 10),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -167,7 +167,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ],
               ),
-              ElevatedButton(
+              /*ElevatedButton(
                 onPressed: () {
                   Navigator.pushNamed(context, '/home');
                 },
@@ -186,7 +186,7 @@ class _LoginPageState extends State<LoginPage> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
+              ),*/
             ],
           ),
         ),

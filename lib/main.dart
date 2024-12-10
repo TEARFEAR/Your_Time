@@ -16,27 +16,85 @@ void main() {
       ChangeNotifierProvider(create: (_) => ProfileProvider()),
       ChangeNotifierProvider(create: (_) => TimetableProvider()),
       ChangeNotifierProvider(create: (_) => SemesterProvider()),
-    ], child: MyApp()),
+    ], child: const MyApp()),
   );
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false, // 상단 우측에 디버그 띠 없애기
-      title: 'SchoolPlanner',
+      debugShowCheckedModeBanner: false,
+      title: 'your time',
       theme: ThemeData(
         primarySwatch: Colors.blue,
         fontFamily: 'NotoSansKR',
       ),
-      home: LoginPage(), // 로그인 화면을 초기 화면으로 설정
+      home: const SplashScreen(),
       routes: {
-        '/home': (context) => HomePage(), // 로그인 성공 시 이동할 홈 화면
+        '/login': (context) => LoginPage(),
+        '/home': (context) => HomePage(),
         '/signup': (context) => SignupPage(),
         '/profile': (context) => ProfileScreen(),
-        // 회원가입 화면 라우트 추가
       },
+    );
+  }
+}
+
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({Key? key}) : super(key: key);
+
+  @override
+  _SplashScreenState createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(seconds: 3), () {
+      Navigator.pushReplacementNamed(context, '/login');
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          Center(
+            child: Text(
+              'your  time',
+              style: const TextStyle(
+                fontFamily: 'LeagueSpartan',
+                fontSize: 60,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+                letterSpacing: -3,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 40,
+            child: Center(
+              child: Text(
+                '민재와 윤진이',
+                style: const TextStyle(
+                  fontFamily: 'Gugi',
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

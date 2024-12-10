@@ -33,6 +33,14 @@ flutter:
           weight: 500
         - asset: assets/fonts/NotoSansKR-Bold.ttf
           weight: 700
+    - family: LeagueSpartan
+      fonts:
+        - asset: assets/fonts/LeagueSpartan-ExtraBold.ttf
+          weight: 800
+    - family: Gugi
+      fonts:
+        - asset: assets/fonts/Gugi-Regular.ttf
+          weight: 400
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
