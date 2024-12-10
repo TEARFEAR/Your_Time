@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../utils/utils.dart';
 import '../profile_page.dart';
 
 // 위젯
 import '../widgets/timetable_widget.dart';
 import '../widgets/lecture_search_bottom_sheet.dart';
-import '../widgets/custom_bottom_navigation.dart';
 
 // provider
 import 'package:provider/provider.dart';
@@ -42,27 +40,6 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  void _onItemTapped(int index) {
-    if (index == 1) {
-      // "내 정보" 화면으로 전환
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => ProfileScreen()),
-      ).then((_) {
-        // "내 정보" 화면에서 돌아오면 홈 화면 상태로 복원
-        setState(() {
-          _selectedIndex = 0;
-        });
-      });
-    } else {
-      // 홈 버튼 동작
-      setState(() {
-        _selectedIndex = index;
-      });
-      Navigator.popUntil(context, (route) => route.isFirst);
-    }
-  }
-
   final int kColumnLength = 13;
   final double kTimeColumnWidth = 20.0;
 
@@ -75,126 +52,141 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       body: _selectedIndex == 0
           ? SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Stack(
                 children: [
-                  Consumer<SemesterProvider>(
-                    builder: (context, semesterProvider, child) {
-                      return GestureDetector(
-                        onTap: () {
-                          showDialog(
-                            context: context,
-                            builder: (BuildContext context) {
-                              return AlertDialog(
-                                title: Text('학기 선택'),
-                                content: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    // 연도 선택
-                                    Container(
-                                      width: double.infinity,
-                                      child: DropdownButton<int>(
-                                        isExpanded: true,
-                                        value: semesterProvider.selectedYear,
-                                        items: List.generate(5, (index) {
-                                          final year = DateTime.now().year - 2 + index;
-                                          return DropdownMenuItem(
-                                            value: year,
-                                            child: Text('$year년'),
-                                          );
-                                        }),
-                                        onChanged: (value) {
-                                          if (value != null) {
-                                            semesterProvider.setYear(value);
-                                          }
-                                        },
-                                      ),
+                  Column(
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Consumer<SemesterProvider>(
+                              builder: (context, semesterProvider, child) {
+                                return GestureDetector(
+                                  onTap: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return AlertDialog(
+                                          title: Text('학기 선택'),
+                                          content: StatefulBuilder(
+                                            builder: (BuildContext context, StateSetter setState) {
+                                              return Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Container(
+                                                    width: double.infinity,
+                                                    child: DropdownButton<int>(
+                                                      isExpanded: true,
+                                                      value: semesterProvider.selectedYear,
+                                                      items: List.generate(5, (index) {
+                                                        final year = DateTime.now().year - 2 + index;
+                                                        return DropdownMenuItem(
+                                                          value: year,
+                                                          child: Text('$year년'),
+                                                        );
+                                                      }),
+                                                      onChanged: (value) {
+                                                        if (value != null) {
+                                                          setState(() {
+                                                            semesterProvider.setYear(value);
+                                                          });
+                                                        }
+                                                      },
+                                                    ),
+                                                  ),
+                                                  SizedBox(height: 16),
+                                                  Container(
+                                                    width: double.infinity,
+                                                    child: DropdownButton<int>(
+                                                      isExpanded: true,
+                                                      value: semesterProvider.selectedSemester,
+                                                      items: [
+                                                        DropdownMenuItem(value: 1, child: Text('1학기')),
+                                                        DropdownMenuItem(value: 2, child: Text('2학기')),
+                                                      ],
+                                                      onChanged: (value) {
+                                                        if (value != null) {
+                                                          setState(() {
+                                                            semesterProvider.setSemester(value);
+                                                          });
+                                                        }
+                                                      },
+                                                    ),
+                                                  ),
+                                                ],
+                                              );
+                                            },
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(context),
+                                              child: Text('확인'),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  },
+                                  child: Text(
+                                    '${semesterProvider.selectedYear}년 ${semesterProvider.selectedSemester}학기\n시간표',
+                                    style: TextStyle(
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.bold,
                                     ),
-                                    SizedBox(height: 16),
-                                    // 학기 선택
-                                    Container(
-                                      width: double.infinity,
-                                      child: DropdownButton<int>(
-                                        isExpanded: true,
-                                        value: semesterProvider.selectedSemester,
-                                        items: [
-                                          DropdownMenuItem(value: 1, child: Text('1학기')),
-                                          DropdownMenuItem(value: 2, child: Text('2학기')),
-                                        ],
-                                        onChanged: (value) {
-                                          if (value != null) {
-                                            semesterProvider.setSemester(value);
-                                          }
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: Text('확인'),
                                   ),
-                                ],
-                              );
-                            },
-                          );
-                        },
-                        child: Text(
-                          '${semesterProvider.selectedYear}년 ${semesterProvider.selectedSemester}학기\n시간표',
-                          style: TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.bold,
-                          ),
+                                );
+                              },
+                            ),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                borderRadius: BorderRadius.circular(40),
+                              ),
+                              child: IconButton(
+                                icon: Icon(Icons.person),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => ProfileScreen()),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
                         ),
-                      );
-                    },
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      // 과목 추가 버튼 클릭 시 바텀 시트를 띄움
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
-                        ),
-                        builder: (BuildContext context) {
-                          return FractionallySizedBox(
-                            heightFactor: 0.8,  // 화면 높이의 90%
-                            child: const LectureSearchBottomSheet(),
-                          );
-                        },
-                      );
-                    },
-                    icon: const Icon(Icons.add),
-                    label: const Text(
-                      '과목 추가',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
                       ),
-                    ),
-                    style: ElevatedButton.styleFrom(
+                      TimetableWidget(dynamicBoxSize: dynamicBoxSize),
+                    ],
+                  ),
+                  Positioned(
+                    right: 16,
+                    bottom: 16,
+                    child: FloatingActionButton(
+                      onPressed: () {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+                          ),
+                          builder: (BuildContext context) {
+                            return FractionallySizedBox(
+                              heightFactor: 0.8,
+                              child: const LectureSearchBottomSheet(),
+                            );
+                          },
+                        );
+                      },
                       backgroundColor: Colors.black,
-                      foregroundColor: Colors.white,
+                      child: Icon(Icons.add, color: Colors.white),
                     ),
                   ),
                 ],
               ),
-            ),
-            TimetableWidget(dynamicBoxSize: dynamicBoxSize),
-          ],
-        ),
-      )
+            )
           : Container(),
-      bottomNavigationBar: CustomBottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onItemTapped: _onItemTapped,
-      ),
     );
   }
 

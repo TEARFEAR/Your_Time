@@ -62,6 +62,7 @@ class SemesterProvider with ChangeNotifier {
         // TimetableProvider 업데이트
         timetableProvider?.setInitialTimetable(timetableData);
       } else {
+        timetableProvider?.setInitialTimetable([]);
         throw Exception('Failed to load enrollments');
       }
     } catch (e) {
