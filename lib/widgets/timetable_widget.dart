@@ -161,9 +161,9 @@ class TimetableWidget extends StatelessWidget {
               width: boxWidth - 2,  // 양쪽 1픽셀 여백
               height: height,
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.blue.withOpacity(0.5)),
+                color: _getSubjectColor(subject['subject'] ?? '').withOpacity(0.25),
+                borderRadius: BorderRadius.circular(2),
+                border: Border.all(color: _getSubjectColor(subject['subject'] ?? '')),
               ),
               padding: const EdgeInsets.all(4),
               child: Column(

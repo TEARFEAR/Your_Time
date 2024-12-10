@@ -161,11 +161,13 @@ class _HomePageState extends State<HomePage> {
                         context: context,
                         isScrollControlled: true,
                         shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.vertical(
-                              top: Radius.circular(15)),
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
                         ),
                         builder: (BuildContext context) {
-                          return const LectureSearchBottomSheet(); // 검색 바텀 시트를 표시
+                          return FractionallySizedBox(
+                            heightFactor: 0.8,  // 화면 높이의 90%
+                            child: const LectureSearchBottomSheet(),
+                          );
                         },
                       );
                     },

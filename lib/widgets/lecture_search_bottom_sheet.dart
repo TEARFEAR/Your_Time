@@ -13,6 +13,7 @@ import 'package:http/http.dart' as http;
 
 // provider
 import '../providers/timetable_provider.dart';
+import '../providers/semester_provider.dart';
 
 class LectureSearchBottomSheet extends StatefulWidget {
   const LectureSearchBottomSheet({Key? key}) : super(key: key);
@@ -82,7 +83,7 @@ class _LectureSearchBottomSheetState extends State<LectureSearchBottomSheet> {
         Uri.parse("http://localhost:8080/api/lectures/enrollment"),
         headers: {
           'Content-Type': 'application/json; charset=UTF-8',
-          'Authorization': 'Bearer $token', // 헤더에 토큰 추가
+          'Authorization': 'Bearer $token',
         },
         body: jsonEncode({"lectureId": lecture["id"]}),
       );
@@ -94,6 +95,11 @@ class _LectureSearchBottomSheetState extends State<LectureSearchBottomSheet> {
             content: Text("'${lecture['subjectName']}' 강의가 성공적으로 수강 신청되었습니다."),
           ),
         );
+        Navigator.pop(context); // 검색 창 닫기
+        
+        // 시간표 새로고침
+        final semesterProvider = Provider.of<SemesterProvider>(context, listen: false);
+        await semesterProvider.fetchEnrollments();
       } else {
         // 강의 추가 실패 시 메시지 표시
         ScaffoldMessenger.of(context).showSnackBar(
@@ -103,10 +109,9 @@ class _LectureSearchBottomSheetState extends State<LectureSearchBottomSheet> {
         );
       }
     } catch (error) {
-      // 오류 처리
       print("강의 수강 신청 중 오류 발생: $error");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text("강의 수강 신청 중 오류가 발생했습니다."),
         ),
       );
@@ -143,7 +148,169 @@ class _LectureSearchBottomSheetState extends State<LectureSearchBottomSheet> {
     );
   }
 
+  void showFilterOptions() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '필터',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 20),
+              TextField(
+                onChanged: (value) {
+                  setState(() {
+                    scheduleInformation = value;
+                  });
+                },
+                decoration: InputDecoration(
+                  labelText: "시간대",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+              SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  showCategorySelector();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black,
+                  side: BorderSide(color: Colors.grey),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text("과목 구분 선택"),
+              ),
+              SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: Icon(Icons.close),
+              ),
+              Text(
+                '과목 검색',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(width: 40),
+            ],
+          ),
+          SizedBox(height: 20),
+          TextField(
+            onChanged: (value) {
+              setState(() {
+                subjectName = value;
+              });
+            },
+            decoration: InputDecoration(
+              hintText: "과목명",
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: showFilterOptions,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
+                    side: BorderSide(color: Colors.grey),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text("필터"),
+                ),
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: searchButtonPressed,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text("검색"),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 20),
+          Expanded(
+            child: filteredLectures.isEmpty
+                ? Center(
+                    child: Text(
+                      '검색 결과가 없습니다.',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 16,
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: filteredLectures.length,
+                    itemBuilder: (context, index) {
+                      final lecture = filteredLectures[index];
+                      return ListTile(
+                        title: Text(lecture['subjectName'] ?? '정보 없음'),
+                        subtitle: Text(
+                          '${lecture['professorInformation'] ?? '교수 정보 없음'} / ${lecture['scheduleInformation'] ?? '시간 정보 없음'}',
+                        ),
+                        onTap: () => showAddLectureDialog(lecture),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+  /*@override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: Container(
@@ -181,6 +348,7 @@ class _LectureSearchBottomSheetState extends State<LectureSearchBottomSheet> {
                 labelText: "과목명",
                 border: OutlineInputBorder(),
               ),
+
             ),
             const SizedBox(height: 8.0),
             TextField(
@@ -240,4 +408,4 @@ class _LectureSearchBottomSheetState extends State<LectureSearchBottomSheet> {
       ),
     );
   }
-}
+}*/

@@ -16,57 +16,76 @@ import 'package:fl_chart/fl_chart.dart';
 class AverageGradeChart extends StatelessWidget {
   final Map<String, double> averageGrades;
 
-  AverageGradeChart({required this.averageGrades});
+  const AverageGradeChart({Key? key, required this.averageGrades}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: BarChart(
-        BarChartData(
-          titlesData: FlTitlesData(
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                getTitlesWidget: (value, meta) {
-                  return Text(value.toInt().toString(), style: TextStyle(fontSize: 10)); // y축의 학점
-                },
-              ),
-            ),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                getTitlesWidget: (value, meta) {
-                  // x축의 연도와 학기 표시
-                  if (value.toInt() < averageGrades.keys.length) {
-                    return Text(
-                      averageGrades.keys.toList()[value.toInt()],
-                      style: TextStyle(fontSize: 10),
-                    );
-                  }
-                  return const Text('');
-                },
-              ),
-            ),
-          ),
-          borderData: FlBorderData(show: true),
-          barGroups: averageGrades.entries.map((entry) {
-            return BarChartGroupData(
-              x: averageGrades.keys.toList().indexOf(entry.key), // x축: 연도와 학기
-              barRods: [
-                BarChartRodData(
-                  toY: entry.value, // toY로 변경
-                  width: 16,
-                  color: Colors.blue,
-                  borderRadius: BorderRadius.zero,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      height: 300,
+      child: averageGrades.isEmpty
+          ? const Center(child: Text('학기별 평점 데이터가 없습니다.'))
+          : Column(
+              children: [
+                const Text(
+                  '학기별 평점',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: BarChart(
+                    BarChartData(
+                      alignment: BarChartAlignment.spaceAround,
+                      maxY: 4.5,
+                      minY: 0,
+                      groupsSpace: 12,
+                      barGroups: _createBarGroups(),
+                      titlesData: FlTitlesData(
+                        show: true,
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            getTitlesWidget: (value, meta) {
+                              return Text(
+                                averageGrades.keys.elementAt(value.toInt()),
+                                style: const TextStyle(fontSize: 10),
+                              );
+                            },
+                          ),
+                        ),
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            interval: 1,
+                            reservedSize: 30,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ],
-            );
-          }).toList(),
-          gridData: FlGridData(show: true), // 격자 표시
-        ),
-      ),
+            ),
     );
+  }
+
+  List<BarChartGroupData> _createBarGroups() {
+    return averageGrades.entries.map((entry) {
+      return BarChartGroupData(
+        x: averageGrades.keys.toList().indexOf(entry.key),
+        barRods: [
+          BarChartRodData(
+            toY: entry.value,
+            color: Colors.blue,
+            width: 16,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+          ),
+        ],
+      );
+    }).toList();
   }
 }
 
@@ -74,7 +93,7 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, double>>(
-      future: fetchAverageGrades(),  // API 호출하여 평균 학점 데이터 가져오기
+      future: fetchAverageGrades(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(
@@ -170,9 +189,8 @@ class _ProfileCardState extends State<ProfileCard> {
   int m_difficulty = 0;
   int m_learningAmount = 0;
   bool isLoading = true;
-  String profileImageUrl = ''; // To store the image URL
+  String profileImageUrl = '';
 
-  // Add ImagePicker instance
   final ImagePicker _picker = ImagePicker();
 
   Future<String?> getToken() async {
@@ -247,7 +265,6 @@ class _ProfileCardState extends State<ProfileCard> {
     }
   }
 
-  // Upload profile image method
   Future<void> uploadProfileImage(XFile image) async {
     try {
       final token = await getToken();
@@ -262,7 +279,7 @@ class _ProfileCardState extends State<ProfileCard> {
 
       if (response.statusCode == 200) {
         print('이미지 업로드 성공');
-        fetchProfileImage(); // Reload image after upload
+        fetchProfileImage();
       } else {
         print('이미지 업로드 실패. 상태 코드: ${response.statusCode}');
       }
@@ -296,86 +313,158 @@ class _ProfileCardState extends State<ProfileCard> {
   void initState() {
     super.initState();
     fetchProfileData();
-    fetchProfileImage(); // Fetch profile image when widget is loaded
+    fetchProfileImage();
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(16),
+      padding: EdgeInsets.all(24),
       margin: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Color(0xFFE2E8F0),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-      ),
-      child: isLoading
-          ? Center(child: CircularProgressIndicator())
-          : Row(
-        children: [
-          GestureDetector(
-            onTap: pickImage,
-            child: CircleAvatar(
-              radius: 40,
-              backgroundImage: profileImageUrl.isNotEmpty
-                  ? NetworkImage(profileImageUrl)
-                  : null,
-              child: profileImageUrl.isEmpty
-                  ? Icon(
-                Icons.person,
-                size: 40,
-                color: Colors.white,
-              )
-                  : null,
-            ),
-          ),
-          SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$m_name',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text('학과: $m_department'),
-                Text('학번: 2024000000'),
-                Row(
-                  children: [
-                    Text(
-                      '성향: ${getTendencyText(m_tendency)}',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ProfileEditScreen()),
-              );
-
-              if (result == true) {
-                setState(() {
-                  isLoading = true;
-                });
-                fetchProfileData(); // Refresh data
-                fetchProfileImage(); // Refresh image
-              }
-            },
-            child: Text('회원 정보 수정'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFFCBD5E0),
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: Offset(0, 4),
           ),
         ],
       ),
+      child: isLoading
+          ? Center(child: CircularProgressIndicator())
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: pickImage,
+                      child: CircleAvatar(
+                        radius: 40,
+                        backgroundColor: Color(0xFFE2E8F0),
+                        backgroundImage: profileImageUrl.isNotEmpty
+                            ? NetworkImage(profileImageUrl)
+                            : null,
+                        child: profileImageUrl.isEmpty
+                            ? Icon(
+                                Icons.person,
+                                size: 40,
+                                color: Colors.white,
+                              )
+                            : null,
+                      ),
+                    ),
+                    SizedBox(width: 40),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            m_name,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                          ),
+                          SizedBox(height: 10),
+                          Container(
+                            padding: EdgeInsets.all(10),
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                Expanded(
+                                  flex: 1,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '학과',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        m_department,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      SizedBox(height: 10),
+                                      Text(
+                                        '성향',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        getTendencyText(m_tendency),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => ProfileEditScreen()),
+                      );
+
+                      if (result == true) {
+                        setState(() {
+                          isLoading = true;
+                        });
+                        fetchProfileData();
+                        fetchProfileImage();
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(
+                      '회원 정보 수정',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }
