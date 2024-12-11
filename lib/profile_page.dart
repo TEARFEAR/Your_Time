@@ -20,55 +20,70 @@ class AverageGradeChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final highestGradeSemester = averageGrades.entries.reduce((a, b) => a.value > b.value ? a : b);
+
     return Container(
       padding: const EdgeInsets.all(16),
       height: 300,
       child: averageGrades.isEmpty
           ? const Center(child: Text('학기별 평점 데이터가 없습니다.'))
           : Column(
-              children: [
-                const Text(
-                  '학기별 평점',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+        children: [
+          Text(
+            '가장 높은 학기: ${highestGradeSemester.key}, 평점: ${highestGradeSemester.value.toStringAsFixed(2)}',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blue),
+          ),
+          const Text(
+            '학기별 평점',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: BarChart(
+              BarChartData(
+                alignment: BarChartAlignment.spaceAround,
+                maxY: 4.5,
+                minY: 0,
+                groupsSpace: 12,
+                barGroups: _createBarGroups(),
+                titlesData: FlTitlesData(
+                  show: true,
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        return Text(
+                          averageGrades.keys.elementAt(value.toInt()),
+                          style: const TextStyle(fontSize: 10),
+                        );
+                      },
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: BarChart(
-                    BarChartData(
-                      alignment: BarChartAlignment.spaceAround,
-                      maxY: 4.5,
-                      minY: 0,
-                      groupsSpace: 12,
-                      barGroups: _createBarGroups(),
-                      titlesData: FlTitlesData(
-                        show: true,
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            getTitlesWidget: (value, meta) {
-                              return Text(
-                                averageGrades.keys.elementAt(value.toInt()),
-                                style: const TextStyle(fontSize: 10),
-                              );
-                            },
-                          ),
-                        ),
-                        leftTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            interval: 1,
-                            reservedSize: 30,
-                          ),
-                        ),
-                      ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: 1,
+                      reservedSize: 30,
                     ),
                   ),
                 ),
-              ],
+              ),
             ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '추천성향: 도전형',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.red,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -87,6 +102,7 @@ class AverageGradeChart extends StatelessWidget {
       );
     }).toList();
   }
+
 }
 
 class ProfileScreen extends StatelessWidget {
@@ -135,43 +151,51 @@ Future<Map<String, double>> fetchAverageGrades() async {
   final token = await getToken();
   if (token == null) return {};
 
-  final Map<String, double> averageGrades = {};
+  // 기본 더미 데이터
+  final Map<String, double> averageGrades = {
+    '2021 1학기': 3.2,
+    '2021 2학기': 2.8,
+    '2022 1학기': 3.7,
+    '2022 2학기': 3.9,
+    '2023 1학기': 4.0, //도전형
+    '2023 2학기': 3.6,
+    '2024 1학기': 3.8,
+  };
 
-  final semesters = [
-    {'year': '2024', 'semester': '1학기'},
-  ];
+  // 2024년 2학기 API 호출
+  final url = Uri.parse('http://localhost:8080/api/lectures/average-grade');
+  final response = await http.post(
+    url,
+    headers: {
+      'accept': '*/*',
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    },
+    body: jsonEncode({
+      'year': '2024',
+      'semester': '2학기',
+      'page': 0,
+      'size': 0,
+    }),
+  );
 
-  for (var semester in semesters) {
-    final url = Uri.parse('http://localhost:8080/api/lectures/average-grade');
-    final response = await http.post(
-      url,
-      headers: {
-        'accept': '*/*',
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'year': semester['year'],
-        'semester': semester['semester'],
-        'page': 0,
-        'size': 0,
-      }),
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data != null) {
-        // Assuming the response body contains a plain string value
-        final averageGrade = double.tryParse(data.toString()) ?? 0.0;
-        averageGrades['${semester['year']} ${semester['semester']}'] = averageGrade;
-      }
-    } else {
-      print('학점 계산에 실패했습니다. 상태 코드: ${response.statusCode}');
+  if (response.statusCode == 200) {
+    final data = jsonDecode(response.body);
+    if (data != null) {
+      // Assuming the response body contains a plain string value
+      final averageGrade = double.tryParse(data.toString()) ?? 0.0;
+      averageGrades['2024 2학기'] = averageGrade;
     }
+  } else {
+    print('2024년 2학기 학점 계산에 실패했습니다. 상태 코드: ${response.statusCode}');
   }
+  // 가장 높은 학기 계산
+  final highestGradeSemester = averageGrades.entries.reduce((a, b) => a.value > b.value ? a : b);
+  print('가장 높은 학기: ${highestGradeSemester.key}, 평점: ${highestGradeSemester.value}');
 
   return averageGrades;
 }
+
 
 
 
@@ -467,4 +491,5 @@ class _ProfileCardState extends State<ProfileCard> {
             ),
     );
   }
+
 }
