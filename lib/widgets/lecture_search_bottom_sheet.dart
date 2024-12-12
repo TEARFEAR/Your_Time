@@ -29,16 +29,93 @@ class _LectureSearchBottomSheetState extends State<LectureSearchBottomSheet> {
 
   String subjectName = ''; // 과목명 검색어
   String scheduleInformation = ''; // 시간대 검색어
+  @override
+  void initState() {
+    super.initState();
+    fetchRecommendedLectures(); // 추천 강의 로드
+  }
 
+  // 추천 강의를 가져오는 함수
+  Future<void> fetchRecommendedLectures() async {
+    try {
+      print("API 호출 시작");
+      List<
+          dynamic> recommendedLectures = await getRecommendedLectures(); // 비동기 호출
+
+      if (recommendedLectures.isEmpty) {
+        print("추천 강의가 없습니다.");
+      } else {
+        print("추천 강의가 있습니다.");
+      }
+
+      setState(() {
+        lectureList = recommendedLectures; // 화면에 반영
+        filteredLectures = recommendedLectures;
+      });
+    } catch (error) {
+      print("추천 강의 로드 실패: $error");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("추천 강의를 가져오는 데 실패했습니다."),
+        ),
+      );
+    }
+  }
+
+
+  // 추천 강의 API 호출 (Mock 또는 실제 API 연결)
+  Future<List<dynamic>> getRecommendedLectures() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      if (token == null) {
+        throw Exception("토큰이 없습니다. 로그인이 필요합니다.");
+      }
+
+      final response = await http.post(
+        Uri.parse("http://localhost:8080/api/lectures/recommendLecture"),
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          "year": 2024,
+          "semester": "2학기",
+          "page": 0,
+          "size": 10, // 최대 10개의 추천 강의 표시
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        // 응답 본문을 UTF-8로 디코딩
+        final decodedResponse = jsonDecode(utf8.decode(response.bodyBytes));
+
+        if (decodedResponse is Map) {
+          // Map 안에 "lectures"라는 키가 있을 경우 해당 리스트를 반환
+          return decodedResponse['lectures'] ?? [];
+        } else {
+          throw Exception("응답 형식이 예상과 다릅니다.");
+        }
+      } else {
+        throw Exception("추천 강의 조회 실패: ${response.statusCode}");
+      }
+    } catch (error) {
+      print("추천 강의 조회 중 오류 발생: $error");
+      return [];
+    }
+  }
+
+  bool isSearching = false;  // 검색 상태를 나타내는 변수
   // 검색 버튼을 눌렀을 때 호출되는 함수
   void searchButtonPressed() async {
-
     // 강의 검색 후 결과 받아오기
+    isSearching = true;
     List<dynamic> lectures = await searchLecturesByName(subjectName);
 
     // 검색된 강의 목록을 화면에 표시
     setState(() {
-      lectureList = lectures;  // lectureList를 업데이트하여 화면에 표시
+      lectureList = lectures; // lectureList를 업데이트하여 화면에 표시
       filteredLectures = filterLectures(
         lectureList: lectureList,
         scheduleInformation: scheduleInformation,
@@ -51,8 +128,10 @@ class _LectureSearchBottomSheetState extends State<LectureSearchBottomSheet> {
   void showCategorySelector() {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Bottom Sheet가 화면의 중앙에 나타나도록 설정
-      backgroundColor: Colors.transparent, // 배경을 투명하게 설정
+      isScrollControlled: true,
+      // Bottom Sheet가 화면의 중앙에 나타나도록 설정
+      backgroundColor: Colors.transparent,
+      // 배경을 투명하게 설정
       isDismissible: true,
       builder: (context) {
         return CategorySelector(
@@ -95,9 +174,10 @@ class _LectureSearchBottomSheetState extends State<LectureSearchBottomSheet> {
           ),
         );
         Navigator.pop(context); // 검색 창 닫기
-        
+
         // 시간표 새로고침
-        final semesterProvider = Provider.of<SemesterProvider>(context, listen: false);
+        final semesterProvider = Provider.of<SemesterProvider>(
+            context, listen: false);
         await semesterProvider.fetchEnrollments();
       } else {
         // 강의 추가 실패 시 메시지 표시
@@ -277,34 +357,54 @@ class _LectureSearchBottomSheetState extends State<LectureSearchBottomSheet> {
               ),
             ],
           ),
-          SizedBox(height: 20),
+          // 필터링된 강의 목록 표시
           Expanded(
             child: filteredLectures.isEmpty
                 ? Center(
-                    child: Text(
-                      '검색 결과가 없습니다.',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 16,
-                      ),
-                    ),
-                  )
+              child: Text(
+                '추천 강의가 없습니다.',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 16,
+                ),
+              ),
+            )
                 : ListView.builder(
-                    itemCount: filteredLectures.length,
-                    itemBuilder: (context, index) {
-                      final lecture = filteredLectures[index];
-                      return ListTile(
-                        title: Text(lecture['subjectName'] ?? '정보 없음'),
-                        subtitle: Text(
-                          '${lecture['professorInformation'] ?? '교수 정보 없음'} / ${lecture['scheduleInformation'] ?? '시간 정보 없음'}',
+              itemCount: filteredLectures.length,
+              itemBuilder: (context, index) {
+                final lecture = filteredLectures[index];
+                return ListTile(
+                  title: Text(lecture['subjectName'] ?? '정보 없음'),
+                  subtitle: Row(
+                    children: [
+                      Text(
+                        '${lecture['professorInformation'] ?? '교수 정보 없음'}',
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        '${lecture['scheduleInformation'] ?? '시간 정보 없음'}',
+                      ),
+                      // 강의 옆에 "추천 강의" 표시
+                      SizedBox(width: 8),
+                      if (!isSearching)
+                        Text(
+                          '추천 강의',  // 여기서 강의 옆에 "추천 강의" 표시
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        onTap: () => showAddLectureDialog(lecture),
-                      );
-                    },
+                    ],
                   ),
+                  onTap: () => showAddLectureDialog(lecture),
+                );
+              },
+            ),
           ),
         ],
       ),
     );
-  }
+
+}
 }

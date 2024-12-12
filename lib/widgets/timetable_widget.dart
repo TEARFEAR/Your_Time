@@ -418,7 +418,7 @@ class TimetableWidget extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
                     const Text(
-                      '추천 과목',
+                      '추천 대체 과목',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
