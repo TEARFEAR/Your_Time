@@ -14,27 +14,27 @@ import 'widgets/custom_bottom_navigation.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 class AverageGradeChart extends StatelessWidget {
-  final Map<String, double> averageGrades;
+  final Map<String, Map<String, double>> semesterData;
 
-  const AverageGradeChart({Key? key, required this.averageGrades}) : super(key: key);
+  const AverageGradeChart({Key? key, required this.semesterData}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final highestGradeSemester = averageGrades.entries.reduce((a, b) => a.value > b.value ? a : b);
+    final highestGradeSemester = semesterData.entries.reduce((a, b) => a.value['평점']! > b.value['평점']! ? a : b);
 
     return Container(
       padding: const EdgeInsets.all(16),
-      height: 300,
-      child: averageGrades.isEmpty
-          ? const Center(child: Text('학기별 평점 데이터가 없습니다.'))
+      height: 450,
+      child: semesterData.isEmpty
+          ? const Center(child: Text('학기별 데이터가 없습니다.'))
           : Column(
         children: [
           Text(
-            '가장 높은 학기: ${highestGradeSemester.key}, 평점: ${highestGradeSemester.value.toStringAsFixed(2)}',
+            '가장 높은 학기: ${highestGradeSemester.key}, 평점: ${highestGradeSemester.value['평점']!.toStringAsFixed(2)}',
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blue),
           ),
           const Text(
-            '학기별 평점',
+            '학기별 데이터',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -45,7 +45,7 @@ class AverageGradeChart extends StatelessWidget {
             child: BarChart(
               BarChartData(
                 alignment: BarChartAlignment.spaceAround,
-                maxY: 4.5,
+                maxY: 5.0,
                 minY: 0,
                 groupsSpace: 12,
                 barGroups: _createBarGroups(),
@@ -56,7 +56,7 @@ class AverageGradeChart extends StatelessWidget {
                       showTitles: true,
                       getTitlesWidget: (value, meta) {
                         return Text(
-                          averageGrades.keys.elementAt(value.toInt()),
+                          semesterData.keys.elementAt(value.toInt()),
                           style: const TextStyle(fontSize: 10),
                         );
                       },
@@ -74,6 +74,17 @@ class AverageGradeChart extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildLegendItem('평점', Colors.blue),
+              const SizedBox(width: 16),
+              _buildLegendItem('학습유용도', Colors.green),
+              const SizedBox(width: 16),
+              _buildLegendItem('난이도', Colors.red),
+            ],
+          ),
+          const SizedBox(height: 8),
           const Text(
             '추천성향: 도전형',
             style: TextStyle(
@@ -83,33 +94,66 @@ class AverageGradeChart extends StatelessWidget {
             ),
           ),
         ],
+
       ),
     );
   }
 
+  Widget _buildLegendItem(String label, Color color) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12),
+        ),
+      ],
+    );
+  }
+
   List<BarChartGroupData> _createBarGroups() {
-    return averageGrades.entries.map((entry) {
+    return semesterData.entries.map((entry) {
+      final index = semesterData.keys.toList().indexOf(entry.key);
       return BarChartGroupData(
-        x: averageGrades.keys.toList().indexOf(entry.key),
+        x: index,
         barRods: [
           BarChartRodData(
-            toY: entry.value,
+            toY: entry.value['평점']!,
             color: Colors.blue,
-            width: 16,
+            width: 8,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+          ),
+          BarChartRodData(
+            toY: entry.value['학습유용도']!,
+            color: Colors.green,
+            width: 8,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+          ),
+          BarChartRodData(
+            toY: entry.value['난이도']!,
+            color: Colors.red,
+            width: 8,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
           ),
         ],
       );
     }).toList();
   }
-
 }
 
 class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Map<String, double>>(
-      future: fetchAverageGrades(),
+    return FutureBuilder<Map<String, Map<String, double>>>(
+      future: fetchSemesterData(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(
@@ -125,13 +169,13 @@ class ProfileScreen extends StatelessWidget {
           );
         }
 
-        final averageGrades = snapshot.data ?? {};
+        final semesterData = snapshot.data ?? {};
         return Scaffold(
           appBar: AppBar(title: Text('내 정보')),
           body: Column(
             children: [
               ProfileCard(),
-              Expanded(child: AverageGradeChart(averageGrades: averageGrades)),
+              Expanded(child: AverageGradeChart(semesterData: semesterData)),
             ],
           ),
         );
@@ -140,11 +184,10 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-Future<Map<String, double>> fetchAverageGrades() async {
+Future<Map<String, Map<String, double>>> fetchSemesterData() async {
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
-    print('저장된 토큰: $token');
     return token;
   }
 
@@ -152,49 +195,49 @@ Future<Map<String, double>> fetchAverageGrades() async {
   if (token == null) return {};
 
   // 기본 더미 데이터
-  final Map<String, double> averageGrades = {
-    '2021 1학기': 3.2,
-    '2021 2학기': 2.8,
-    '2022 1학기': 3.7,
-    '2022 2학기': 3.9,
-    '2023 1학기': 4.0, //도전형
-    '2023 2학기': 3.6,
-    '2024 1학기': 3.8,
+  final Map<String, Map<String, double>> semesterData = {
+    '2021 1학기': {'평점': 3.2, '학습유용도': 4.0, '난이도': 3.5},
+    '2021 2학기': {'평점': 2.8, '학습유용도': 3.5, '난이도': 3.0},
+    '2022 1학기': {'평점': 3.7, '학습유용도': 4.2, '난이도': 3.8},
+    '2022 2학기': {'평점': 3.9, '학습유용도': 4.5, '난이도': 4.0},
+    '2023 1학기': {'평점': 4.0, '학습유용도': 4.8, '난이도': 4.2},
+    '2023 2학기': {'평점': 3.6, '학습유용도': 4.0, '난이도': 3.7},
+    '2024 1학기': {'평점': 3.8, '학습유용도': 4.1, '난이도': 3.9},
   };
 
-  // 2024년 2학기 API 호출
-  final url = Uri.parse('http://localhost:8080/api/lectures/average-grade');
-  final response = await http.post(
-    url,
-    headers: {
-      'accept': '*/*',
-      'Authorization': 'Bearer $token',
-      'Content-Type': 'application/json',
-    },
-    body: jsonEncode({
-      'year': '2024',
-      'semester': '2학기',
-      'page': 0,
-      'size': 0,
-    }),
-  );
+  // API 호출
+  final List<String> metrics = ['평점', '학습유용도', '난이도'];
+  for (final metric in metrics) {
+    final url = Uri.parse('http://localhost:8080/api/lectures/average-$metric');
+    final response = await http.post(
+      url,
+      headers: {
+        'accept': '*/*',
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'year': '2024',
+        'semester': '2학기',
+        'page': 0,
+        'size': 0,
+      }),
+    );
 
-  if (response.statusCode == 200) {
-    final data = jsonDecode(response.body);
-    if (data != null) {
-      // Assuming the response body contains a plain string value
-      final averageGrade = double.tryParse(data.toString()) ?? 0.0;
-      averageGrades['2024 2학기'] = averageGrade;
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data != null) {
+        semesterData['2024 2학기'] ??= {};
+        semesterData['2024 2학기']?[metric] = double.tryParse(data.toString()) ?? 0.0;
+      }
+    } else {
+      print('2024년 2학기 $metric 계산에 실패했습니다. 상태 코드: ${response.statusCode}');
     }
-  } else {
-    print('2024년 2학기 학점 계산에 실패했습니다. 상태 코드: ${response.statusCode}');
   }
-  // 가장 높은 학기 계산
-  final highestGradeSemester = averageGrades.entries.reduce((a, b) => a.value > b.value ? a : b);
-  print('가장 높은 학기: ${highestGradeSemester.key}, 평점: ${highestGradeSemester.value}');
 
-  return averageGrades;
+  return semesterData;
 }
+
 
 
 
