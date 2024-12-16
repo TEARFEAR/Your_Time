@@ -409,6 +409,15 @@ class TimetableWidget extends StatelessWidget {
                         Text(' (${rating.toStringAsFixed(1)}/5.0)', 
                           style: const TextStyle(fontSize: 16)
                         ),
+                        const SizedBox(width: 10),
+                        ElevatedButton(
+                          onPressed: () => _showRatingDialog(context, subject['lecture_id']),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                          ),
+                          child: const Text('평점 등록', style: TextStyle(color: Colors.white)),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -622,6 +631,97 @@ class TimetableWidget extends StatelessWidget {
       print('과목 변경 중 오류 발생: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('과목 변경 중 오류가 발생했습니다.')),
+      );
+    }
+  }
+
+  void _showRatingDialog(BuildContext context, String lectureId) {
+    double selectedRating = 0.0;
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('평점 등록'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('평점을 선택해주세요 (0.5점 단위)'),
+                  const SizedBox(height: 20),
+                  Slider(
+                    value: selectedRating,
+                    min: 0,
+                    max: 5,
+                    divisions: 10,
+                    label: selectedRating.toString(),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedRating = value;
+                      });
+                    },
+                  ),
+                  Text('선택한 평점: ${selectedRating.toStringAsFixed(1)}'),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  child: const Text('취소'),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                TextButton(
+                  child: const Text('등록'),
+                  onPressed: () {
+                    _submitRating(context, lectureId, selectedRating);
+                    Navigator.pop(context);
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _submitRating(BuildContext context, String lectureId, double rating) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      if (token == null) {
+        throw Exception("토큰이 없습니다. 로그인이 필요합니다.");
+      }
+
+      final response = await http.post(
+        Uri.parse('http://localhost:8080/api/lectures/rating'),
+        headers: {
+          'accept': '*/*',
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'lectureId': lectureId,
+          'rating': rating,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('평점이 성공적으로 등록되었습니다.')),
+        );
+        
+        // 시간표 새로고침
+        final semesterProvider = Provider.of<SemesterProvider>(context, listen: false);
+        await semesterProvider.fetchEnrollments();
+      } else {
+        throw Exception('평점 등록 실패');
+      }
+    } catch (e) {
+      print('평점 등록 중 오류 발생: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('평점 등록 중 오류가 발생했습니다.')),
       );
     }
   }
